@@ -525,7 +525,13 @@ function manualSync(payload) {
       masterSheet.clearContents();
       masterSheet.getRange(1, 1, masterRows.length, masterRows[0].length).setValues(masterRows);
     }
-
+    // 2. Sync '대여현황'
+    var rentalSheet = ss.getSheetByName("대여현황");
+    if (rentalSheet && payload.rentals) {
+      var rentalRows = [["상품코드", "상품명", "색상", "사이즈", "수량", "대여자", "날짜", "유형", "UUID", "반납시간"]];
+      payload.rentals.forEach(function(r) {
+        rentalRows.push([r.code, r.name, r.color, r.size, r.qty, r.renter, r.date, r.type, r.timestamp, r.returnTime]);
+      });
       rentalSheet.clearContents();
       rentalSheet.getRange(1, 1, rentalRows.length, rentalRows[0].length).setValues(rentalRows);
     }
