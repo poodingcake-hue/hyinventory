@@ -122,7 +122,10 @@ async def crawl_hmall() -> list:
                             }
                             if (!code) return;
 
-                            let name = l.innerText.trim().split('\\n')[0].replace(/\\d+%.*/, '').trim();
+                            let name = l.innerText.trim().split('\n')[0].replace(/\d+%.*/, '').trim();
+                            // '알리미' 같은 불필요한 텍스트 제거 및 이름 정제
+                            name = name.replace(/방송알리미|알리미.*/g, '').trim();
+                            
                             if (name.length >= 2) {
                                 items.push({ time: lastTime, code, name, itemDate: lastDate });
                             }
@@ -137,13 +140,14 @@ async def crawl_hmall() -> list:
                 
                 today = datetime.datetime.now()
                 year = today.year
-                for item in new_items:
-                    raw_date = item["itemDate"]
-                    dt_obj = today
+                for (var item of new_items) {
+                    var raw_date = item["itemDate"]
+                    var dt_obj = today
                     
-                    if raw_date == "오늘": dt_obj = today
-                    elif raw_date == "내일": dt_obj = today + datetime.timedelta(days=1)
-                    elif "월" in raw_date:
+                    if (raw_date == "오늘") dt_obj = today
+                    elif (raw_date == "내일") dt_obj = today + datetime.timedelta(days=1)
+                    elif (raw_date == "어제") dt_obj = today - datetime.timedelta(days=1)
+                    elif ("월" in raw_date):
                         m = re.search(r"(\d+)월", raw_date)
                         d = re.search(r"(\d+)일", raw_date)
                         if m and d:
@@ -151,13 +155,15 @@ async def crawl_hmall() -> list:
                     
                     final_date = dt_obj.strftime("%Y-%m-%d")
                     
+                    # 중복 제거 강화: (날짜, 시간, 코드)를 키로 사용
                     key = (final_date, item["time"], item["code"])
-                    day_results[key] = {
-                        "date": final_date,
-                        "time": item["time"],
-                        "code": item["code"],
-                        "name": item["name"]
-                    }
+                    if key not in day_results:
+                        day_results[key] = {
+                            "date": final_date,
+                            "time": item["time"],
+                            "code": item["code"],
+                            "name": item["name"]
+                        }
 
                 scroll_count += 1
                 prev_h = await page.evaluate("document.body.scrollHeight")
@@ -193,22 +199,21 @@ def update_data_json(new_schedule):
     # 3. 데이터 업데이트
     data["schedule"] = filtered_schedule
     
-    # 4. 날짜 목록 추출 및 정렬 (전체 수집된 데이터 기준)
-    # 우리 상품이 없더라도 '날짜 버튼'은 보이게 하여 크롤러가 작동함을 알림
-    unique_dates = sorted(list(set([s["date"] for s in new_schedule])))
+    # 4. 날짜 목록 추출 및 정렬 (우리 상품이 있는 날짜만)
+    unique_dates = sorted(list(set([s["date"] for s in filtered_schedule])))
     data["dates"] = unique_dates
     
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-    print(f"✅ {DATA_FILE} 업데이트 완료! (필터링 적용)")
+    print(f"✅ {DATA_FILE} 업데이트 완료! (우리 상품 편성표만 반영)")
     print(f"📊 수집된 총 방송: {len(new_schedule)}개 -> 우리 상품 방송: {len(filtered_schedule)}개")
     if filtered_schedule:
         for s in filtered_schedule:
             print(f"   - [매칭] {s['date']} {s['time']} | {s['code']} | {s['name']}")
     else:
         print("   - ℹ️ 우리 재고와 일치하는 방송이 없습니다.")
-    print(f"📅 대상 날짜: {', '.join(unique_dates)}")
+    print(f"📅 대상 날짜 (편성됨): {', '.join(unique_dates)}")
 
 async def main():
     print("=" * 50)
