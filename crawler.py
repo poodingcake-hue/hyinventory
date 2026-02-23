@@ -95,7 +95,7 @@ async def crawl_hmall() -> list:
                         if (broadcastTime && broadcastTime.includes(' ')) broadcastTime = broadcastTime.split(' ')[1];
                         
                         if (!broadcastTime) {
-                            let tMatch = container.innerText.match(/(\\d{2}:\\d{2})/);
+                            let tMatch = container.innerText.match(/(\\d{1,2}:\\d{2})/);
                             if (tMatch) broadcastTime = tMatch[1];
                         }
                         
@@ -104,8 +104,13 @@ async def crawl_hmall() -> list:
                         if (dMatch) currentDate = dMatch[1];
                         else if (container.innerText.includes("내일")) currentDate = "내일";
                         else if (container.innerText.includes("오늘")) currentDate = "오늘";
+                        else if (container.innerText.includes("어제")) currentDate = "어제";
 
-                        if (broadcastTime) lastTime = broadcastTime;
+                        if (broadcastTime) {
+                            // Normalize time to HH:mm (e.g. 6:00 -> 06:00)
+                            let [h, m] = broadcastTime.split(':');
+                            lastTime = h.padStart(2, '0') + ":" + m.padStart(2, '0');
+                        }
                         if (currentDate) lastDate = currentDate;
 
                         let links = Array.from(container.querySelectorAll('a[href*="slitmCd="], [data-slitm-cd]'));
@@ -188,8 +193,9 @@ def update_data_json(new_schedule):
     # 3. 데이터 업데이트
     data["schedule"] = filtered_schedule
     
-    # 4. 날짜 목록 추출 및 정렬 (Unique Dates)
-    unique_dates = sorted(list(set([s["date"] for s in filtered_schedule])))
+    # 4. 날짜 목록 추출 및 정렬 (전체 수집된 데이터 기준)
+    # 우리 상품이 없더라도 '날짜 버튼'은 보이게 하여 크롤러가 작동함을 알림
+    unique_dates = sorted(list(set([s["date"] for s in new_schedule])))
     data["dates"] = unique_dates
     
     with open(DATA_FILE, "w", encoding="utf-8") as f:
@@ -197,6 +203,11 @@ def update_data_json(new_schedule):
 
     print(f"✅ {DATA_FILE} 업데이트 완료! (필터링 적용)")
     print(f"📊 수집된 총 방송: {len(new_schedule)}개 -> 우리 상품 방송: {len(filtered_schedule)}개")
+    if filtered_schedule:
+        for s in filtered_schedule:
+            print(f"   - [매칭] {s['date']} {s['time']} | {s['code']} | {s['name']}")
+    else:
+        print("   - ℹ️ 우리 재고와 일치하는 방송이 없습니다.")
     print(f"📅 대상 날짜: {', '.join(unique_dates)}")
 
 async def main():
