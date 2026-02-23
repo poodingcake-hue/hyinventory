@@ -131,19 +131,28 @@ async def crawl_hmall() -> list:
                 current_state["lastTime"] = eval_result["lastTime"]
                 
                 today = datetime.datetime.now()
+                year = today.year
                 for item in new_items:
                     raw_date = item["itemDate"]
-                    final_date = clean_date 
+                    dt_obj = today
                     
-                    if raw_date == "오늘": final_date = today.strftime("%m.%d")
-                    elif raw_date == "내일": final_date = (today + datetime.timedelta(days=1)).strftime("%m.%d")
+                    if raw_date == "오늘": dt_obj = today
+                    elif raw_date == "내일": dt_obj = today + datetime.timedelta(days=1)
                     elif "월" in raw_date:
                         m = re.search(r"(\d+)월", raw_date)
                         d = re.search(r"(\d+)일", raw_date)
-                        if m and d: final_date = f"{int(m.group(1)):02d}.{int(d.group(1)):02d}"
+                        if m and d:
+                            dt_obj = datetime.datetime(year, int(m.group(1)), int(d.group(1)))
+                    
+                    final_date = dt_obj.strftime("%Y-%m-%d")
                     
                     key = (final_date, item["time"], item["code"])
-                    day_results[key] = [final_date, item["time"], item["code"], item["name"]]
+                    day_results[key] = {
+                        "date": final_date,
+                        "time": item["time"],
+                        "code": item["code"],
+                        "name": item["name"]
+                    }
 
                 scroll_count += 1
                 prev_h = await page.evaluate("document.body.scrollHeight")
@@ -162,7 +171,7 @@ async def crawl_hmall() -> list:
         return results
 
 def update_data_json(new_schedule):
-    """data.json 파일을 읽어서 schedule 정보를 업데이트합니다."""
+    """data.json 파일을 읽어서 schedule 및 dates 정보를 업데이트합니다."""
     if not os.path.exists(DATA_FILE):
         print(f"❌ {DATA_FILE} 파일을 찾을 수 없습니다.")
         return
@@ -170,13 +179,19 @@ def update_data_json(new_schedule):
     with open(DATA_FILE, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    # 신규 스케줄로 교체
+    # 1. 스케줄 정보 업데이트
     data["schedule"] = new_schedule
+    
+    # 2. 날짜 목록 추출 및 정렬 (Unique Dates)
+    unique_dates = sorted(list(set([s["date"] for s in new_schedule])))
+    data["dates"] = unique_dates
     
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-    print(f"✅ {DATA_FILE} 업데이트 완료! (총 {len(new_schedule)}개 방송 정보)")
+    print(f"✅ {DATA_FILE} 업데이트 완료!")
+    print(f"📊 총 방송 정보: {len(new_schedule)}개")
+    print(f"📅 대상 날짜: {', '.join(unique_dates)}")
 
 async def main():
     print("=" * 50)
