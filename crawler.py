@@ -171,7 +171,7 @@ async def crawl_hmall() -> list:
         return results
 
 def update_data_json(new_schedule):
-    """data.json 파일을 읽어서 schedule 및 dates 정보를 업데이트합니다."""
+    """data.json 파일을 읽어서 우리 재고와 매칭되는 상품만 schedule에 등록합니다."""
     if not os.path.exists(DATA_FILE):
         print(f"❌ {DATA_FILE} 파일을 찾을 수 없습니다.")
         return
@@ -179,18 +179,24 @@ def update_data_json(new_schedule):
     with open(DATA_FILE, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    # 1. 스케줄 정보 업데이트
-    data["schedule"] = new_schedule
+    # 1. 우리 재고(Items)에 있는 상품 코드 목록 추출
+    our_codes = {str(item["code"]).strip() for item in data.get("items", [])}
     
-    # 2. 날짜 목록 추출 및 정렬 (Unique Dates)
-    unique_dates = sorted(list(set([s["date"] for s in new_schedule])))
+    # 2. 크롤링 결과 중 우리 상품만 필터링
+    filtered_schedule = [s for s in new_schedule if str(s["code"]).strip() in our_codes]
+    
+    # 3. 데이터 업데이트
+    data["schedule"] = filtered_schedule
+    
+    # 4. 날짜 목록 추출 및 정렬 (Unique Dates)
+    unique_dates = sorted(list(set([s["date"] for s in filtered_schedule])))
     data["dates"] = unique_dates
     
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-    print(f"✅ {DATA_FILE} 업데이트 완료!")
-    print(f"📊 총 방송 정보: {len(new_schedule)}개")
+    print(f"✅ {DATA_FILE} 업데이트 완료! (필터링 적용)")
+    print(f"📊 수집된 총 방송: {len(new_schedule)}개 -> 우리 상품 방송: {len(filtered_schedule)}개")
     print(f"📅 대상 날짜: {', '.join(unique_dates)}")
 
 async def main():
