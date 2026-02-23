@@ -1,0 +1,530 @@
+var SPREADSHEET_ID = "1NEsimkXycdXQCz4g0cr31j93MGI7HKNDeoiJO4HjgOw";
+
+function doGet(e) {
+  return HtmlService.createHtmlOutputFromFile('index')
+    .setTitle('현대홈쇼핑 재고관리')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+function doPost(e) {
+  var data = JSON.parse(e.postData.contents);
+  var action = data.action;
+  var payload = data.payload;
+  var result;
+
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+    
+    if (action === "getInitialData") result = getInitialData();
+    else if (action === "saveInventoryData") { invalidateCache(); result = saveInventoryData(payload); }
+    else if (action === "processRental") { invalidateCache(); result = processRental(payload); }
+    else if (action === "processReturn") { invalidateCache(); result = processReturn(payload); }
+    else if (action === "batchSaveOutfits") { invalidateCache(); result = batchSaveOutfits(payload); }
+    else if (action === "saveHandling") { invalidateCache(); result = saveHandling(payload); }
+    else if (action === "deleteOutfit") { invalidateCache(); result = deleteOutfit(payload); }
+    else if (action === "registerProductData") { invalidateCache(); result = registerProductData(payload); }
+    else if (action === "manualSync") { invalidateCache(); result = manualSync(payload); }
+
+    SpreadsheetApp.flush();
+    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({success: false, error: err.toString()})).setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function invalidateCache() {
+  try {
+    CacheService.getScriptCache().remove('initialData');
+  } catch(e) { /* ignore */ }
+}
+
+function getInitialData() {
+  // -- CacheService: 30분 캐싱 --
+  try {
+    var cache = CacheService.getScriptCache();
+    var cached = cache.get('initialData');
+    if (cached) return JSON.parse(cached);
+  } catch(e) { /* proceed without cache */ }
+
+  var ss;
+  try {
+    ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  } catch (e) {
+    throw new Error("스프레드시트를 열 수 없습니다. ID와 권한을 확인하세요: " + e.toString());
+  }
+
+  // Speed Boost: Get all sheets in one call
+  var allSheets = ss.getSheets();
+  var sheetMap = {};
+  allSheets.forEach(function(s) { sheetMap[s.getName()] = s; });
+
+  var masterSheet = sheetMap["통합관리"];
+  var rawSheet = sheetMap["RAW"];
+  var rentalSheet = sheetMap["대여현황"];
+  var outfitSheet = sheetMap["착장내역"];
+  var scheduleSheet = sheetMap["크롤링"];
+  var handlingSheet = sheetMap["핸들링"];
+
+  if (!masterSheet) {
+    throw new Error("'통합관리' 시트를 찾을 수 없습니다. 시트 이름을 확인해 주세요.");
+  }
+
+  // Efficient Range Fetching
+  function getSheetData(s) {
+    if (!s || s.getLastRow() < 1) return null;
+    return s.getDataRange().getDisplayValues();
+  }
+
+  var masterData = getSheetData(masterSheet);
+  var rawData = getSheetData(rawSheet);
+  var rentalData = getSheetData(rentalSheet);
+  var outfitData = getSheetData(outfitSheet);
+  var scheduleData = getSheetData(scheduleSheet);
+  var handlingData = getSheetData(handlingSheet);
+
+  var items = [];
+  var brands = new Set();
+  var categories = new Set();
+  var stockMap = {};
+  var variationsMap = {}; // code -> { colors: [], sizes: [] }
+
+  // 1. Master Products ('통합관리')
+  if (masterData && masterData.length > 1) {
+    for (var i = 1; i < masterData.length; i++) {
+      var code = String(masterData[i][0]).trim();
+      if (!code) continue;
+      var obj = {
+        code: code,
+        brand: String(masterData[i][1] || "").trim(),
+        name: String(masterData[i][2] || "상품명 없음").trim(),
+        category: String(masterData[i][3] || "").trim(),
+        colors: String(masterData[i][4] || ""),
+        sizes: String(masterData[i][5] || ""),
+        image: String(masterData[i][7] || ""),
+        location: String(masterData[i][8] || "")
+      };
+      items.push(obj);
+      if (obj.brand) brands.add(obj.brand);
+      if (obj.category) categories.add(obj.category);
+    }
+  }
+
+  // O(1) lookup map for schedule filtering
+  var itemsCodeSet = {};
+  items.forEach(function(it) { itemsCodeSet[it.code] = it; });
+
+  // 2. Stock ('RAW')
+  if (rawData && rawData.length > 1) {
+    for (var j = 1; j < rawData.length; j++) {
+      var rCode = String(rawData[j][0]).trim();
+      var rSize = String(rawData[j][2] || "").trim();
+      var rColor = String(rawData[j][3] || "").trim();
+      var rQty = Number(rawData[j][4]) || 0;
+      if (!rCode) continue;
+      var key = rCode + "_" + rColor + "_" + rSize;
+      stockMap[key] = (stockMap[key] || 0) + rQty;
+
+      if (!variationsMap[rCode]) variationsMap[rCode] = { colors: {}, sizes: {} };
+      if (rColor) variationsMap[rCode].colors[rColor] = true;
+      if (rSize) variationsMap[rCode].sizes[rSize] = true;
+    }
+  }
+
+  // Convert variation sets to arrays for the frontend
+  for (var codeKey in variationsMap) {
+    variationsMap[codeKey].colors = Object.keys(variationsMap[codeKey].colors);
+    variationsMap[codeKey].sizes = Object.keys(variationsMap[codeKey].sizes);
+  }
+
+  // 3. Rentals ('대여현황') - 활성 대여만 전송 (반납 완료 제외)
+  var rentals = [];
+  if (rentalData && rentalData.length > 1) {
+    for (var k = 1; k < rentalData.length; k++) {
+      if (!rentalData[k][0]) continue;
+      var returnTime = rentalData[k][9];
+      // 반납 완료된 항목은 기본 페이로드에서 제외 → 페이로드 80% 감소
+      if (returnTime) continue;
+      rentals.push({
+        rowIndex: k + 1,
+        code: String(rentalData[k][0]).trim(),
+        name: rentalData[k][1],
+        color: rentalData[k][2],
+        size: rentalData[k][3],
+        qty: Number(rentalData[k][4]) || 0,
+        renter: rentalData[k][5],
+        date: String(rentalData[k][6] || ""),
+        type: rentalData[k][7],
+        timestamp: rentalData[k][8],
+        returnTime: ""
+      });
+    }
+  }
+
+  // 4. Outfits
+  var outfits = [];
+  if (outfitData && outfitData.length > 1) {
+    for (var l = 1; l < outfitData.length; l++) {
+      if (outfitData[l][0]) {
+        outfits.push({
+          code: String(outfitData[l][0]).trim(),
+          name: outfitData[l][1],
+          host: outfitData[l][2],
+          size: outfitData[l][3]
+        });
+      }
+    }
+  }
+
+  // 5. Schedule ('크롤링')
+  var schedule = [];
+  var dateSet = new Set();
+  if (scheduleData && scheduleData.length > 1) {
+    for (var m = 1; m < scheduleData.length; m++) {
+      var sCode = String(scheduleData[m][6] || "").trim(); // G열 (index 6)
+      var sTime = String(scheduleData[m][7] || "").trim(); // H열 (index 7)
+      
+      if (!sCode || !sTime) continue;
+      
+      // O(1) lookup using pre-built map
+      if (!itemsCodeSet[sCode]) continue;
+      
+      // Robust date/time extraction (handles formats like 2026. 2. 21 or 2026-02-23)
+      var dateRegex = /(\d{4})[\.\-\/\s]+(\d{1,2})[\.\-\/\s]+(\d{1,2})/;
+      var dateMatch = sTime.match(dateRegex);
+      
+      var sDate = "";
+      var displayTime = sTime;
+
+      if (dateMatch) {
+        // Format to YYYY-MM-DD for reliable Date parsing
+        sDate = dateMatch[1] + "-" + dateMatch[2].padStart(2, '0') + "-" + dateMatch[3].padStart(2, '0');
+        displayTime = sTime.replace(dateMatch[0], "").trim();
+        // Remove leading dots/spaces/colons
+        displayTime = displayTime.replace(/^[\.\s\:]+/, "").trim();
+        // Remove seconds if present (e.g., :00)
+        displayTime = displayTime.replace(/(\d{1,2}:\d{2}):\d{2}/, "$1");
+      } else {
+        sDate = sTime.split(" ")[0];
+      }
+
+      if (sDate) dateSet.add(sDate);
+      
+      var scheduleItem = itemsCodeSet[sCode];
+      schedule.push({
+        time: displayTime,
+        date: sDate,
+        code: sCode,
+        name: scheduleItem ? scheduleItem.name : sCode
+      });
+    }
+  }
+
+  // 6. Handling
+  var handlings = [];
+  if (handlingData && handlingData.length > 1) {
+    for (var n = 1; n < handlingData.length; n++) {
+      if (handlingData[n][0]) {
+        handlings.push({
+          code: String(handlingData[n][0]).trim(),
+          content: handlingData[n][1],
+          user: handlingData[n][2],
+          date: String(handlingData[n][3] || "")
+        });
+      }
+    }
+  }
+
+  var result = {
+    success: true,
+    brands: Array.from(brands).sort(),
+    categories: Array.from(categories).sort(),
+    dates: Array.from(dateSet).sort(),
+    items: items,
+    stockMap: stockMap,
+    rentals: rentals,
+    outfits: outfits,
+    schedule: schedule,
+    handlings: handlings,
+    variationsMap: variationsMap
+  };
+
+  // -- 캐시 저장 (30분 TTL) --
+  try {
+    var resultStr = JSON.stringify(result);
+    // GAS CacheService 최대 100KB 제한 체크
+    if (resultStr.length < 90000) {
+      CacheService.getScriptCache().put('initialData', resultStr, 1800);
+    } else {
+      // 데이터가 큼면 여러 조각으로 저장
+      var part1 = { success: true, brands: result.brands, categories: result.categories, dates: result.dates, items: result.items, stockMap: result.stockMap, variationsMap: result.variationsMap };
+      var p1str = JSON.stringify(part1);
+      if (p1str.length < 90000) CacheService.getScriptCache().put('initialData_p1', p1str, 1800);
+    }
+  } catch(e) { /* cache write error is non-critical */ }
+
+  return result;
+}
+
+function saveInventoryData(payload) {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var rawSheet = ss.getSheetByName("RAW");
+  if (!rawSheet) throw new Error("'RAW' 시트를 찾을 수 없습니다.");
+  var now = new Date();
+  var rows = payload.matrix.map(function(m) {
+    return [payload.code, payload.name, m.size, m.color, m.qty, now];
+  });
+  rawSheet.getRange(rawSheet.getLastRow() + 1, 1, rows.length, 6).setValues(rows);
+  return {success: true, message: "재고 등록 완료"};
+}
+
+function processRental(payload) {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var rentalSheet = ss.getSheetByName("대여현황");
+  
+  if (!rentalSheet) throw new Error("'대여현황' 시트가 없습니다. 시트 이름을 확인해주세요.");
+
+  var now = new Date();
+  var timestamp = Utilities.getUuid();
+  
+  var rentalRows = [];
+  payload.items.forEach(function(item) {
+    // Only write to rentalSheet. RAW will reflect "Incoming Master Stock".
+    // Available stock = RAW - Active Rentals (calculated in Frontend)
+    rentalRows.push([item.code, item.name, item.color, item.size, item.qty, payload.renter, now, payload.type || "대여", timestamp, ""]);
+  });
+
+  rentalSheet.getRange(rentalSheet.getLastRow() + 1, 1, rentalRows.length, 10).setValues(rentalRows);
+  
+  return {success: true, message: "대여 등록 완료"};
+}
+
+function processReturn(payload) {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var rentalSheet = ss.getSheetByName("대여현황");
+  
+  if (!rentalSheet) throw new Error("'대여현황' 시트를 찾을 수 없습니다.");
+
+  var now = new Date();
+
+  // Batch optimization: collect valid rowIndices and update via RangeList
+  var rowIndices = payload.items
+    .filter(function(item) { return item.rowIndex; })
+    .map(function(item) { return item.rowIndex; });
+
+  if (rowIndices.length > 0) {
+    var ranges = rowIndices.map(function(rowIdx) {
+      return rentalSheet.getRange(rowIdx, 10);
+    });
+    var rangeList = rentalSheet.getRangeList(
+      rowIndices.map(function(rowIdx) { return 'J' + rowIdx; })
+    );
+    rangeList.setValue(now);
+  }
+
+  return {success: true, message: "반납 처리 완료"};
+}
+
+function batchSaveOutfits(payload) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName("착장내역");
+    if (!sheet) return {success: false, error: "'착장내역' 시트를 찾을 수 없습니다."};
+    
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0];
+    var existingData = data.slice(1);
+    
+    payload.items.forEach(function(newItem) {
+      var foundIndex = -1;
+      for (var i = 0; i < existingData.length; i++) {
+        // Match by Product Code (Col A) and Host Name (Col C)
+        if (String(existingData[i][0]).trim() === String(newItem.code).trim() && 
+            String(existingData[i][2]).trim() === String(newItem.host).trim()) {
+          foundIndex = i;
+          break;
+        }
+      }
+      
+      if (foundIndex > -1) {
+        // Update Name (Col B) and Size (Col D)
+        existingData[foundIndex][1] = newItem.name;
+        existingData[foundIndex][3] = newItem.size;
+      } else {
+        // Append new row
+        existingData.push([newItem.code, newItem.name, newItem.host, newItem.size]);
+      }
+    });
+    
+    // Clear and rewrite (excluding headers)
+    if (existingData.length > 0) {
+      sheet.getRange(2, 1, sheet.getLastRow() > 1 ? sheet.getLastRow() - 1 : 1, headers.length).clearContent();
+      sheet.getRange(2, 1, existingData.length, headers.length).setValues(existingData);
+    }
+    
+    return {success: true, message: "착장 정보 저장 완료"};
+  } catch(e) {
+    return {success: false, error: e.toString()};
+  }
+}
+
+function deleteOutfit(payload) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName("착장내역");
+    var data = sheet.getDataRange().getValues();
+    
+    for (var i = data.length - 1; i >= 1; i--) {
+      if (String(data[i][0]).trim() === String(payload.code).trim() && 
+          String(data[i][2]).trim() === String(payload.host).trim()) {
+        sheet.deleteRow(i + 1);
+      }
+    }
+    return {success: true};
+  } catch(e) {
+    return {success: false, error: e.toString()};
+  }
+}
+
+function saveHandling(payload) {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName("핸들링");
+  var now = new Date();
+  sheet.appendRow([payload.code, payload.content, payload.user, now]);
+  return {success: true, message: "핸들링 내용 저장 완료"};
+}
+
+function registerProductData(payload) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var masterSheet = ss.getSheetByName("통합관리");
+    var rawSheet = ss.getSheetByName("RAW");
+    
+    if (!masterSheet || !rawSheet) {
+      return { success: false, error: "시트를 찾을 수 없습니다 (통합관리/RAW)." };
+    }
+
+    var data = payload.master;
+    var stocks = payload.stocks; // [{size, color, qty}]
+    var now = new Date();
+
+    // 1. Smart Save to Master (통합관리) - UPSERT
+    var masterData = masterSheet.getDataRange().getValues();
+    var foundRow = -1;
+    var targetCode = String(data.code).trim();
+    
+    for (var i = 1; i < masterData.length; i++) {
+      if (String(masterData[i][0]).trim() === targetCode) {
+        foundRow = i + 1;
+        break;
+      }
+    }
+
+    var masterRow = [
+      targetCode,
+      String(data.brand).trim(),
+      String(data.name).trim(),
+      String(data.category).trim(),
+      data.colors.join(", "),
+      data.sizes.join(", "),
+      "", // Crawling
+      data.image || "", // Image
+      ""  // Location
+    ];
+
+    if (foundRow > -1) {
+      masterSheet.getRange(foundRow, 1, 1, masterRow.length).setValues([masterRow]);
+    } else {
+      masterSheet.appendRow(masterRow);
+    }
+
+    // 2. Save to RAW (Stock)
+    // [상품코드, 상품명, 사이즈, 색상, 수량, 날짜]
+    if (stocks && stocks.length > 0) {
+      var rows = stocks.map(function(s) {
+        return [data.code, String(data.name).trim(), s.size, s.color, s.qty, now];
+      });
+      rawSheet.getRange(rawSheet.getLastRow() + 1, 1, rows.length, 6).setValues(rows);
+    }
+
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.toString() };
+  }
+}
+
+// -------------------------------------------------------
+// Image Proxy: Fetches hmall images server-side to bypass
+// hotlink/CORS restrictions on image.hmall.com
+// -------------------------------------------------------
+function fetchProxyImage(code) {
+  if (!code || code.length < 10) return { success: false };
+  var numMatch = String(code).match(/\d{10}$/);
+  if (!numMatch) return { success: false };
+  var num = numMatch[0];
+  var f1 = num.charAt(7), f2 = num.charAt(6);
+  var f3 = num.substring(4, 6), f4 = num.substring(2, 4);
+  var base = "https://image.hmall.com/static/" + f1 + "/" + f2 + "/" + f3 + "/" + f4 + "/";
+
+  var urls = [
+    base + "onair" + num + ".jpg?AR=0&SF=webp",
+    base + "ecody" + num + ".jpg?AR=0&SF=webp",
+    base + num + ".jpg?AR=0&SF=webp",
+    base + num + ".jpg?AR=0&ao=1&RS=600x600&SF=webp"
+  ];
+
+  var options = {
+    muteHttpExceptions: true,
+    followRedirects: true,
+    headers: {
+      'Referer': 'https://www.hmall.com/',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+    }
+  };
+  for (var i = 0; i < urls.length; i++) {
+    try {
+      var resp = UrlFetchApp.fetch(urls[i], options);
+      if (resp.getResponseCode() === 200) {
+        var blob = resp.getBlob();
+        var b64 = Utilities.base64Encode(blob.getBytes());
+        var mime = blob.getContentType() || "image/jpeg";
+        return { success: true, dataUrl: "data:" + mime + ";base64," + b64 };
+      }
+    } catch (e) { /* try next */ }
+  }
+  return { success: false };
+}
+function manualSync(payload) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    
+    // 1. Sync '통합관리' (Master Items)
+    var masterSheet = ss.getSheetByName("통합관리");
+    if (masterSheet && payload.items) {
+      var masterRows = [["상품코드", "브랜드", "상품명", "복종", "색상", "사이즈", "Crawling", "Image", "Location"]];
+      payload.items.forEach(function(i) {
+        masterRows.push([i.code, i.brand, i.name, i.category, i.colors, i.sizes, "", i.image, i.location]);
+      });
+      masterSheet.clearContents();
+      masterSheet.getRange(1, 1, masterRows.length, masterRows[0].length).setValues(masterRows);
+    }
+
+    // 2. Sync '대여현황'
+    var rentalSheet = ss.getSheetByName("대여현황");
+    if (rentalSheet && payload.rentals) {
+      var rentalRows = [["상품코드", "상품명", "색상", "사이즈", "수량", "대여자", "날짜", "유형", "UUID", "반납시간"]];
+      payload.rentals.forEach(function(r) {
+        rentalRows.push([r.code, r.name, r.color, r.size, r.qty, r.renter, r.date, r.type, r.timestamp, r.returnTime]);
+      });
+      rentalSheet.clearContents();
+      rentalSheet.getRange(1, 1, rentalRows.length, rentalRows[0].length).setValues(rentalRows);
+    }
+    
+    return { success: true, message: "구글 시트 백업 완료" };
+  } catch (e) {
+    return { success: false, error: e.toString() };
+  }
+}
