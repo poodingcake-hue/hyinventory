@@ -1068,8 +1068,8 @@
                 const stockTable = document.getElementById('dtl-stock-table');
                 const vData = DATA.variationsMap[curItem.code] || { colors: [], sizes: [] };
 
-                let allColors = vData.colors.length ? vData.colors : (curItem.colors ? curItem.colors.split(',').map(v => v.trim()) : ["Default"]);
-                let allSizes = vData.sizes.length ? vData.sizes : (curItem.sizes ? curItem.sizes.split(',').map(v => v.trim()) : ["Free"]);
+                let allColors = vData.colors.length ? vData.colors : (curItem.colors ? (Array.isArray(curItem.colors) ? curItem.colors : curItem.colors.split(',').map(v => v.trim())) : ["Default"]);
+                let allSizes = vData.sizes.length ? vData.sizes : (curItem.sizes ? (Array.isArray(curItem.sizes) ? curItem.sizes : curItem.sizes.split(',').map(v => v.trim())) : ["Free"]);
 
                 // Helper to get stock key
                 const getStockKey = (code, color, size) => code + "_" + color + "_" + size;
