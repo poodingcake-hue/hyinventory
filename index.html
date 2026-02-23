@@ -1915,7 +1915,8 @@
                         card.onclick = function () { openDetail(s.code); };
 
                         var brandPrefix = (item && item.brand) ? (item.brand + " ") : "";
-                        var fullName = brandPrefix + (s.name || "");
+                        var displayName = (item && item.name) ? item.name : (s.name || "상품명 없음");
+                        var fullName = brandPrefix + displayName;
 
                         card.innerHTML =
                             '<div class="product-img-box" style="padding-top: 80%;">' +
