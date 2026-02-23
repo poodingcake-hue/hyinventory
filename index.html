@@ -1932,7 +1932,7 @@
                         '<div class="product-img-box"><img src="' + escHtml(i.image || 'https://via.placeholder.com/300') + '" class="product-img" loading="lazy"></div>' +
                         '<div class="card-body-custom">' +
                         '<div class="p-brand">' + escHtml(i.brand || '') + '</div>' +
-                        '<div class="p-name">' + escHtml((i.brand ? i.brand + ' ' : '') + (i.name || '상품명 없음')) + '</div>' +
+                        '<div class="p-name">' + escHtml(i.name || '상품명 없음') + '</div>' +
                         '</div>';
                     fragment.appendChild(card);
                 });
@@ -1995,9 +1995,7 @@
                         card.className = "product-card";
                         card.onclick = function () { openDetail(s.code); };
 
-                        var brandPrefix = (item && item.brand) ? (item.brand + " ") : "";
                         var displayName = (item && item.name) ? item.name : (s.name || "상품명 없음");
-                        var fullName = brandPrefix + displayName;
 
                         card.innerHTML =
                             '<div class="product-img-box" style="padding-top: 80%;">' +
@@ -2005,7 +2003,7 @@
                             '</div>' +
                             '<div class="card-body-custom">' +
                             '<div class="p-brand">' + escHtml(item && item.brand ? item.brand : "-") + '</div>' +
-                            '<div class="p-name">' + escHtml(fullName) + '</div>' +
+                            '<div class="p-name">' + escHtml(displayName) + '</div>' +
                             '</div>';
                         grid.appendChild(card);
                     });
