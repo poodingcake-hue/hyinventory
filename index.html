@@ -610,11 +610,13 @@
                 <button class="nav-btn" onclick="switchMainView('register', this)">상품등록</button>
                 <button class="nav-btn" onclick="switchMainView('schedule', this)">편성표</button>
                 <button class="nav-btn active" onclick="switchMainView('inventory', this)">재고관리</button>
-                <button class="refresh-btn" onclick="refreshData()">
+                <button class="refresh-btn me-1" onclick="refreshData()" title="새로고침">
                     <i data-lucide="refresh-cw" style="width: 18px"></i>
                 </button>
-                <button class="refresh-btn" data-bs-toggle="modal" data-bs-target="#migrationModal"
-                    title="구글시트 데이터 동기화">
+                <button class="refresh-btn me-1" onclick="backupToSheets()" title="구글 시트 백업">
+                    <i data-lucide="cloud-upload" style="width: 18px; color: var(--primary-blue);"></i>
+                </button>
+                <button class="refresh-btn" data-bs-toggle="modal" data-bs-target="#migrationModal" title="기존 데이터 불러오기">
                     <i data-lucide="database-backup" style="width: 18px; color: #f59e0b;"></i>
                 </button>
             </div>
@@ -930,6 +932,43 @@
             const _p2 = "HFNVd3Ztopwt2JL";
             const _p3 = "hzBX1xIVJr";
             const GITHUB_TOKEN = _p1 + _p2 + _p3;
+
+            async function backupToSheets() {
+                if (!confirm("현재 데이터를 구글 시트에 백업하시겠습니까? (GitHub 데이터 -> Google Sheets)")) return;
+
+                let gasUrl = localStorage.getItem('GAS_BACKUP_URL');
+                if (!gasUrl) {
+                    gasUrl = prompt("Google Apps Script 웹 앱 URL이 설정되지 않았습니다.\n배포된 웹 앱 URL을 입력해주세요:");
+                    if (!gasUrl) return;
+                    localStorage.setItem('GAS_BACKUP_URL', gasUrl);
+                }
+
+                showLoader(true);
+                try {
+                    // Send data to GAS for mirroring
+                    const response = await fetch(gasUrl, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'manualSync',
+                            payload: {
+                                items: DATA.items,
+                                rentals: DATA.rentals
+                            }
+                        })
+                    });
+
+                    // Note: no-cors mode results in an opaque response, which doesn't provide success info, 
+                    // but we assume success if the fetch doesn't throw.
+                    alert("구글 시트로 백업 요청을 보냈습니다. ( Apps Script 웹 앱 URL 설정이 정확하다면 백업이 완료됩니다. )");
+                } catch (err) {
+                    console.error("Backup Error:", err);
+                    alert("백업 중 오류 발생: " + err.message);
+                } finally {
+                    showLoader(false);
+                }
+            }
 
             async function callApi(action, payload) {
                 const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE}`;
