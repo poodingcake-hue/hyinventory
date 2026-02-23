@@ -1,8 +1,26 @@
 {
-  "items": [],
+  "items": [
+    {
+      "code": "2208265793",
+      "brand": "프리마클라",
+      "name": "린넨블렌디드 롱 원피스",
+      "category": "상의",
+      "colors": [
+        "블랙",
+        "베이지"
+      ],
+      "sizes": [
+        "40"
+      ],
+      "image": "https://i0.wp.com/image.hmall.com/static/7/5/26/08/onair2208265793.jpg"
+    }
+  ],
   "brands": [],
   "categories": [],
-  "stockMap": {},
+  "stockMap": {
+    "2208265793_블랙_40": 3,
+    "2208265793_베이지_40": 2
+  },
   "rentals": [],
   "outfits": [],
   "schedule": [],
