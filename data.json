@@ -13,13 +13,29 @@
         "40"
       ],
       "image": "https://i0.wp.com/image.hmall.com/static/7/5/26/08/onair2208265793.jpg"
+    },
+    {
+      "code": "2208265796",
+      "brand": "프리마클라",
+      "name": "지오 배색 블라우스",
+      "category": "상의",
+      "colors": [
+        "베이지",
+        "블랙"
+      ],
+      "sizes": [
+        "40"
+      ],
+      "image": "https://i0.wp.com/image.hmall.com/static/7/5/26/08/onair2208265796.jpg"
     }
   ],
   "brands": [],
   "categories": [],
   "stockMap": {
     "2208265793_블랙_40": 3,
-    "2208265793_베이지_40": 2
+    "2208265793_베이지_40": 2,
+    "2208265796_베이지_40": 1,
+    "2208265796_블랙_40": 1
   },
   "rentals": [],
   "outfits": [],
