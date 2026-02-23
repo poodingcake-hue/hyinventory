@@ -1,8 +1,59 @@
 {
-  "items": [],
+  "items": [
+    {
+      "code": "2208265793",
+      "brand": "프리마클라",
+      "name": "린넨블렌디드 롱 원피스",
+      "category": "상의",
+      "colors": [
+        "블랙",
+        "베이지"
+      ],
+      "sizes": [
+        "40"
+      ],
+      "image": "https://i0.wp.com/image.hmall.com/static/7/5/26/08/onair2208265793.jpg"
+    },
+    {
+      "code": "2208265796",
+      "brand": "프리마클라",
+      "name": "지오 배색 블라우스",
+      "category": "상의",
+      "colors": [
+        "베이지",
+        "블랙"
+      ],
+      "sizes": [
+        "40"
+      ],
+      "image": "https://i0.wp.com/image.hmall.com/static/7/5/26/08/onair2208265796.jpg"
+    },
+    {
+      "code": "2239764795",
+      "brand": "프리마클라쎄",
+      "name": "시그니처 니트 2종",
+      "category": "상의",
+      "colors": [
+        "라이트베이지",
+        "브라운"
+      ],
+      "sizes": [
+        "55",
+        "66",
+        "55+",
+        "66+"
+      ],
+      "image": "https://i0.wp.com/image.hmall.com/static/7/4/76/39/onair2239764795.jpg"
+    }
+  ],
   "brands": [],
   "categories": [],
-  "stockMap": {},
+  "stockMap": {
+    "2208265793_블랙_40": 3,
+    "2208265793_베이지_40": 2,
+    "2208265796_베이지_40": 1,
+    "2208265796_블랙_40": 1
+  },
   "rentals": [],
   "outfits": [],
   "schedule": [],
