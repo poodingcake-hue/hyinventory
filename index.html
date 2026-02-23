@@ -598,6 +598,91 @@
         .delete-btn-sm:hover {
             color: #ff4d4f;
         }
+
+        /* Mobile Optimization */
+        @media (max-width: 767px) {
+            html {
+                font-size: 14px;
+            }
+
+            .header-inner {
+                padding: 0.5rem 1rem;
+            }
+
+            .logo {
+                font-size: 1.1rem;
+            }
+
+            .nav-btns {
+                gap: 4px;
+            }
+
+            .nav-btn {
+                padding: 4px 8px;
+                font-size: 0.8rem;
+            }
+
+            .content-area {
+                padding: 0.75rem;
+            }
+
+            .product-grid {
+                grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+                gap: 0.75rem;
+            }
+
+            .card-body-custom {
+                padding: 0.6rem;
+            }
+
+            .p-name {
+                font-size: 0.8rem;
+                height: 2.4em;
+                overflow: hidden;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                line-clamp: 2;
+                -webkit-box-orient: vertical;
+            }
+
+            .info-card {
+                padding: 1rem;
+                margin-bottom: 1rem;
+            }
+
+            .detail-container {
+                padding: 1rem;
+                gap: 1rem;
+            }
+
+            .variant-box {
+                padding: 1rem;
+            }
+
+            .table-custom th,
+            .table-custom td,
+            .list-table th,
+            .list-table td,
+            .dtl-table th,
+            .dtl-table td {
+                padding: 8px 2px;
+                font-size: 0.75rem;
+            }
+
+            .qty-badge {
+                padding: 1px 5px;
+                font-size: 0.7rem;
+            }
+
+            .date-pill {
+                min-width: 50px;
+                height: 60px;
+            }
+
+            .dp-date {
+                font-size: 0.9rem;
+            }
+        }
     </style>
 </head>
 
@@ -610,14 +695,8 @@
                 <button class="nav-btn" onclick="switchMainView('register', this)">상품등록</button>
                 <button class="nav-btn" onclick="switchMainView('schedule', this)">편성표</button>
                 <button class="nav-btn active" onclick="switchMainView('inventory', this)">재고관리</button>
-                <button class="refresh-btn me-1" onclick="refreshData()" title="새로고침">
+                <button class="refresh-btn" onclick="refreshData()" title="새로고침">
                     <i data-lucide="refresh-cw" style="width: 18px"></i>
-                </button>
-                <button class="refresh-btn me-1" onclick="backupToSheets()" title="구글 시트 백업">
-                    <i data-lucide="cloud-upload" style="width: 18px; color: var(--primary-blue);"></i>
-                </button>
-                <button class="refresh-btn" data-bs-toggle="modal" data-bs-target="#migrationModal" title="기존 데이터 불러오기">
-                    <i data-lucide="database-backup" style="width: 18px; color: #f59e0b;"></i>
                 </button>
             </div>
         </div>
