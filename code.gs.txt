@@ -1,6 +1,15 @@
 var SPREADSHEET_ID = "1NEsimkXycdXQCz4g0cr31j93MGI7HKNDeoiJO4HjgOw";
 
 function doGet(e) {
+  // --- Hybrid API Dispatcher (for GET requests) ---
+  if (e.parameter && e.parameter.action) {
+    var action = e.parameter.action;
+    var payload = e.parameter.payload ? JSON.parse(e.parameter.payload) : {};
+    var result = dispatchAction(action, payload);
+    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // --- Normal UI View ---
   return HtmlService.createHtmlOutputFromFile('index')
     .setTitle('현대홈쇼핑 재고관리')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
@@ -11,8 +20,13 @@ function doPost(e) {
   var data = JSON.parse(e.postData.contents);
   var action = data.action;
   var payload = data.payload;
-  var result;
+  var result = dispatchAction(action, payload);
+  
+  return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+}
 
+function dispatchAction(action, payload) {
+  var result;
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(30000);
@@ -28,9 +42,9 @@ function doPost(e) {
     else if (action === "manualSync") { invalidateCache(); result = manualSync(payload); }
 
     SpreadsheetApp.flush();
-    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+    return result;
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({success: false, error: err.toString()})).setMimeType(ContentService.MimeType.JSON);
+    return {success: false, error: err.toString()};
   } finally {
     lock.releaseLock();
   }

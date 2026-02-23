@@ -1015,6 +1015,8 @@
                     if (!putRes.ok) throw new Error("GitHub 저장에 실패했습니다.");
 
                     // Update global DATA so UI reflects changes immediately
+                    // Note: DATA will be fully recalculated in the next refreshData() call,
+                    // but we update it here for immediate feel if needed.
                     DATA = updatedContent;
                     return { success: true };
                 } catch (e) {
@@ -1338,9 +1340,15 @@
                     console.log("Data Response:", res);
                     if (res && res.success) {
                         DATA = res;
-                        if (!DATA.items || DATA.items.length === 0) {
-                            alert("경고: 상품 데이터를 가져오지 못했습니다.");
-                        }
+                        // Ensure all structures exist
+                        if (!DATA.items) DATA.items = [];
+                        if (!DATA.stockMap) DATA.stockMap = {};
+                        if (!DATA.rentals) DATA.rentals = [];
+                        if (!DATA.outfits) DATA.outfits = [];
+                        if (!DATA.handlings) DATA.handlings = [];
+                        if (!DATA.schedule) DATA.schedule = [];
+                        if (!DATA.dates) DATA.dates = [];
+
                         if (!skipUI) initUI();
                     } else {
                         alert("Server Error: " + (res ? res.error : "Unknown"));
@@ -1357,22 +1365,65 @@
             function initUI() {
                 if (!DATA || !DATA.items) return;
 
-                // O(1) 조회 map 재생성
+                // 1. Rebuild lookup map and recalculate aggregates (Always Fresh)
                 DATA_itemsMap = {};
-                DATA.items.forEach(function (item) { DATA_itemsMap[item.code] = item; });
+                var brandsSet = new Set();
+                var categoriesSet = new Set();
+                var variationsMap = {};
 
+                DATA.items.forEach(function (item) {
+                    DATA_itemsMap[item.code] = item;
+                    if (item.brand) brandsSet.add(item.brand);
+                    if (item.category) categoriesSet.add(item.category);
+
+                    // Initialize variations with default fields from master item
+                    if (!variationsMap[item.code]) variationsMap[item.code] = { colors: new Set(), sizes: new Set() };
+                    if (item.colors) {
+                        let cArr = Array.isArray(item.colors) ? item.colors : item.colors.split(',').map(s => s.trim());
+                        cArr.forEach(c => variationsMap[item.code].colors.add(c));
+                    }
+                    if (item.sizes) {
+                        let sArr = Array.isArray(item.sizes) ? item.sizes : item.sizes.split(',').map(s => s.trim());
+                        sArr.forEach(s => variationsMap[item.code].sizes.add(s));
+                    }
+                });
+
+                // Expand variations from actual stock entries
+                Object.keys(DATA.stockMap).forEach(key => {
+                    const parts = key.split('_');
+                    if (parts.length >= 3) {
+                        const code = parts[0], color = parts[1], size = parts[2];
+                        if (variationsMap[code]) {
+                            if (color && color !== "Default") variationsMap[code].colors.add(color);
+                            if (size && size !== "Free") variationsMap[code].sizes.add(size);
+                        }
+                    }
+                });
+
+                // Finalize aggregates
+                DATA.brands = Array.from(brandsSet).sort();
+                DATA.categories = Array.from(categoriesSet).sort();
+                DATA.variationsMap = {};
+                Object.keys(variationsMap).forEach(code => {
+                    DATA.variationsMap[code] = {
+                        colors: Array.from(variationsMap[code].colors),
+                        sizes: Array.from(variationsMap[code].sizes)
+                    };
+                });
+
+                // 2. Populate Filters
                 var bSel = document.getElementById('brandSearch');
                 bSel.innerHTML = '<option value="">브랜드 전체</option>';
-                if (DATA.brands) DATA.brands.forEach(function (b) { bSel.innerHTML += '<option value="' + escHtml(b) + '">' + escHtml(b) + '</option>'; });
+                DATA.brands.forEach(function (b) { bSel.innerHTML += '<option value="' + escHtml(b) + '">' + escHtml(b) + '</option>'; });
 
                 var cSel = document.getElementById('categorySearch');
                 cSel.innerHTML = '<option value="">카테고리 전체</option>';
-                if (DATA.categories) DATA.categories.forEach(function (c) { cSel.innerHTML += '<option value="' + escHtml(c) + '">' + escHtml(c) + '</option>'; });
+                DATA.categories.forEach(function (c) { cSel.innerHTML += '<option value="' + escHtml(c) + '">' + escHtml(c) + '</option>'; });
 
                 bSel.onchange = renderInventory;
                 cSel.onchange = renderInventory;
 
-                // 검색 디바운스 300ms
+                // 3. Search debounce
                 var kwEl = document.getElementById('keywordSearch');
                 kwEl.oninput = function () {
                     clearTimeout(_searchDebounce);
@@ -1933,7 +1984,6 @@
                 });
                 if (!updates.length) return stockModal.hide();
                 showLoader(true);
-                showLoader(true);
                 callApi('saveInventoryData', { code: curItem.code, name: curItem.name, matrix: updates })
                     .then(function () {
                         stockModal.hide();
@@ -2004,11 +2054,7 @@
                     .then(function () { alert("저장되었습니다."); refreshData(); });
             }
 
-            // Start App
-            window.onload = function () {
-                lucide.createIcons();
-                refreshData();
-            };
+            // Start App via DOMContentLoaded
         </script>
 </body>
 
