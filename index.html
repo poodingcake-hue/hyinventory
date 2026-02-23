@@ -946,7 +946,10 @@
                 const content = JSON.parse(decodeURIComponent(escape(atob(fileData.content))));
 
                 // Case: Just reading data
-                if (action === "getInitialData") return content;
+                if (action === "getInitialData") {
+                    content.success = true;
+                    return content;
+                }
 
                 // Case: Modifying data
                 // This simulates the backend logic in index.html for simplicity and speed
