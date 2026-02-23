@@ -140,14 +140,14 @@ async def crawl_hmall() -> list:
                 
                 today = datetime.datetime.now()
                 year = today.year
-                for (var item of new_items) {
-                    var raw_date = item["itemDate"]
-                    var dt_obj = today
+                for item in new_items:
+                    raw_date = item["itemDate"]
+                    dt_obj = today
                     
-                    if (raw_date == "오늘") dt_obj = today
-                    elif (raw_date == "내일") dt_obj = today + datetime.timedelta(days=1)
-                    elif (raw_date == "어제") dt_obj = today - datetime.timedelta(days=1)
-                    elif ("월" in raw_date):
+                    if raw_date == "오늘": dt_obj = today
+                    elif raw_date == "내일": dt_obj = today + datetime.timedelta(days=1)
+                    elif raw_date == "어제": dt_obj = today - datetime.timedelta(days=1)
+                    elif "월" in raw_date:
                         m = re.search(r"(\d+)월", raw_date)
                         d = re.search(r"(\d+)일", raw_date)
                         if m and d:
