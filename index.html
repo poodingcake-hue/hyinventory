@@ -921,12 +921,15 @@
             var rentalCart = [];
             var _searchDebounce = null;
 
-            // --- Multi-Tier API Caller ---
+            // --- Hybrid API Configuration ---
+            const GAS_URL = "https://script.google.com/macros/s/AKfycbx3ravp6fWF7mfl3ZxWLPv33dtH10Rf_goV5lGCSg-6zzKbyfB1dq9VgqKAUj1R-Ah9_A/exec";
             const API_BASE = "http://localhost:3000/api";
-            const USE_LOCAL = true; // Set to false to force GAS
+            // Auto-detect if we should try local first (only on PC where server is usually running)
+            const IS_LOCAL_HOST = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
             async function callApi(action, payload) {
-                if (USE_LOCAL) {
+                // 1. Try Local Server (Primary on PC)
+                if (IS_LOCAL_HOST) {
                     try {
                         const response = await fetch(`${API_BASE}/${action}`, {
                             method: 'POST',
@@ -934,22 +937,43 @@
                             body: JSON.stringify(payload || {})
                         });
                         if (response.ok) return await response.json();
-                        throw new Error(`Local API error: ${response.status}`);
                     } catch (e) {
-                        console.warn("Local API failed, falling back to GAS:", e);
+                        console.warn("Local server not responding, trying Cloud...");
                     }
                 }
 
-                // Fallback to Google Apps Script
-                return new Promise((resolve, reject) => {
-                    if (typeof google === 'undefined') {
-                        reject("Google Apps Script environment not found.");
-                        return;
+                // 2. Try Google Apps Script (Cloud Fallback for Mobile/Web)
+                try {
+                    // If we are actually inside GAS environment (embedded)
+                    if (typeof google !== 'undefined' && google.script && google.script.run) {
+                        return new Promise((resolve, reject) => {
+                            google.script.run
+                                .withSuccessHandler(resolve)
+                                .withFailureHandler(reject)[action](payload);
+                        });
                     }
-                    google.script.run
-                        .withSuccessHandler(resolve)
-                        .withFailureHandler(reject)[action](payload);
-                });
+
+                    // Otherwise, use direct Fetch to GAS Web App (CORS)
+                    const gasResponse = await fetch(GAS_URL, {
+                        method: 'POST',
+                        mode: 'no-cors', // GAS redirected posts usually work best with no-cors or simple redirects
+                        body: JSON.stringify({ action: action, payload: payload })
+                    });
+
+                    // Note: 'no-cors' won't let us read the JSON, so for 'read' actions like refreshData, 
+                    // we might need a different strategy or ensure GAS handles simple GET/POST properly.
+                    // For WRITE actions (submit), no-cors is often enough to send the fire-and-forget data.
+
+                    // REFINED: Since we need JSON for most things, we try regular fetch.
+                    const corsRes = await fetch(GAS_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: action, payload: payload })
+                    });
+                    return await corsRes.json();
+                } catch (e) {
+                    console.error("Cloud API error:", e);
+                    throw new Error("서버에 연결할 수 없습니다. (로컬/클라우드 모두 실패)");
+                }
             }
 
             // XSS 안전 HTML 이스케이프 함수
@@ -1262,22 +1286,7 @@
             async function refreshData(callback, skipUI) {
                 showLoader(true);
                 try {
-                    let res;
-                    if (USE_LOCAL) {
-                        const response = await fetch(`${API_BASE}/data`);
-                        if (response.ok) res = await response.json();
-                    }
-
-                    if (!res) {
-                        // Fallback to GAS if local fails or is disabled
-                        res = await new Promise((resolve, reject) => {
-                            if (typeof google === 'undefined') return reject("GAS not found");
-                            google.script.run
-                                .withSuccessHandler(resolve)
-                                .withFailureHandler(reject)
-                                .getInitialData();
-                        });
-                    }
+                    const res = await callApi('getInitialData');
 
                     console.log("Data Response:", res);
                     if (res && res.success) {
