@@ -17,12 +17,15 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         :root {
-            --primary-blue: #4f46e5;
-            --bg-gray: #f8f9fa;
-            --text-dark: #333;
-            --text-muted: #666;
-            --border-color: #eee;
-            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            --primary-blue: #6366f1;
+            /* More vibrant Indigo */
+            --primary-dark: #4f46e5;
+            --bg-gray: #f9fafb;
+            --text-dark: #1f2937;
+            --text-muted: #6b7280;
+            --border-color: #e5e7eb;
+            --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --premium-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
         }
 
         body {
@@ -113,8 +116,28 @@
         .form-select,
         .form-control {
             border-color: var(--border-color);
-            font-size: 0.85rem;
-            border-radius: 6px;
+            font-size: 0.875rem;
+            border-radius: 10px;
+            padding: 0.6rem 0.75rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background-color: #fff;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .col-form-label {
+            color: var(--text-dark);
+            text-align: right;
+            /* Professional alignment */
+        }
+
+        @media (max-width: 767px) {
+            .col-form-label {
+                text-align: left;
+            }
         }
 
         .content-area {
@@ -139,7 +162,8 @@
         }
 
         .product-card:hover {
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+            transform: translateY(-4px);
+            box-shadow: var(--premium-shadow);
         }
 
         .product-img-box {
@@ -236,6 +260,17 @@
             display: none;
             overflow-y: auto;
             flex-direction: column;
+        }
+
+        .img-link-wrapper {
+            transition: opacity 0.2s, transform 0.2s;
+            display: block;
+            text-decoration: none;
+        }
+
+        .img-link-wrapper:hover {
+            opacity: 0.9;
+            transform: scale(1.01);
         }
 
         .detail-header {
@@ -743,49 +778,50 @@
                 <div class="col-lg-5">
                     <div class="info-card h-100">
                         <h5 class="fw-bold mb-4" id="reg-mode-title">새 상품 등록</h5>
-                        <div class="row mb-2 align-items-center">
+                        <div class="row mb-3 align-items-center">
                             <label class="col-4 col-form-label small fw-bold">상품코드</label>
                             <div class="col-8">
-                                <input type="text" id="reg-code" class="form-control form-control-sm"
-                                    oninput="handleRegCodeInput()">
-                            </div>
-                        </div>
-                        <div class="row mb-2 align-items-center">
-                            <label class="col-4 col-form-label small fw-bold">브랜드</label>
-                            <div class="col-8">
-                                <input type="text" id="reg-brand" class="form-control form-control-sm">
-                            </div>
-                        </div>
-                        <div class="row mb-2 align-items-center">
-                            <label class="col-4 col-form-label small fw-bold">상품명</label>
-                            <div class="col-8">
-                                <input type="text" id="reg-name" class="form-control form-control-sm">
-                            </div>
-                        </div>
-                        <div class="row mb-2 align-items-center">
-                            <label class="col-4 col-form-label small fw-bold">복종</label>
-                            <div class="col-8">
-                                <input type="text" id="reg-category" class="form-control form-control-sm">
-                            </div>
-                        </div>
-                        <div class="row mb-2 align-items-center">
-                            <label class="col-4 col-form-label small fw-bold">색상</label>
-                            <div class="col-8">
-                                <input type="text" id="reg-colors" class="form-control form-control-sm"
-                                    oninput="updateRegMatrix()" placeholder="콤마로 구분">
+                                <input type="text" id="reg-code" class="form-control" oninput="handleRegCodeInput()"
+                                    placeholder="코드 입력">
                             </div>
                         </div>
                         <div class="row mb-3 align-items-center">
+                            <label class="col-4 col-form-label small fw-bold">브랜드</label>
+                            <div class="col-8">
+                                <input type="text" id="reg-brand" class="form-control" placeholder="브랜드명">
+                            </div>
+                        </div>
+                        <div class="row mb-3 align-items-center">
+                            <label class="col-4 col-form-label small fw-bold">상품명</label>
+                            <div class="col-8">
+                                <input type="text" id="reg-name" class="form-control" placeholder="상품 이름">
+                            </div>
+                        </div>
+                        <div class="row mb-3 align-items-center">
+                            <label class="col-4 col-form-label small fw-bold">복종</label>
+                            <div class="col-8">
+                                <input type="text" id="reg-category" class="form-control" placeholder="카테고리">
+                            </div>
+                        </div>
+                        <div class="row mb-3 align-items-center">
+                            <label class="col-4 col-form-label small fw-bold">색상</label>
+                            <div class="col-8">
+                                <input type="text" id="reg-colors" class="form-control" oninput="updateRegMatrix()"
+                                    placeholder="빨강, 파랑 (콤마구분)">
+                            </div>
+                        </div>
+                        <div class="row mb-4 align-items-center">
                             <label class="col-4 col-form-label small fw-bold">사이즈</label>
                             <div class="col-8">
-                                <input type="text" id="reg-sizes" class="form-control form-control-sm"
-                                    oninput="updateRegMatrix()" placeholder="콤마로 구분">
+                                <input type="text" id="reg-sizes" class="form-control" oninput="updateRegMatrix()"
+                                    placeholder="95, 100 (콤마구분)">
                             </div>
                         </div>
                         <button class="btn btn-primary w-100 py-3 mt-3 fw-bold" id="reg-submit-btn"
                             onclick="submitRegistration()"
-                            style="background-color: var(--primary-blue); border: none; border-radius: 12px; font-size: 1rem;">등록
-                            완료 (마스터 + 초기재고)</button>
+                            style="background: linear-gradient(135deg, var(--primary-blue), var(--primary-dark)); border: none; border-radius: 12px; font-size: 1rem; box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3); transition: transform 0.2s;">
+                            등록 완료 (마스터 + 초기재고)
+                        </button>
                     </div>
                 </div>
                 <!-- Right: Stock Matrix & Preview -->
@@ -833,12 +869,16 @@
                     <div id="dtl-code" class="text-muted mb-3" style="font-size: 0.8rem; font-family: 'Outfit';"># -
                     </div>
 
-                    <div class="mb-3 text-center"
-                        style="background: #fdfdfd; border-radius: 8px; padding: 10px; min-height: 200px; display: flex; align-items: center; justify-content: center;">
+                    <a id="dtl-main-img-link" href="#" target="_blank" class="img-link-wrapper mb-3 text-center"
+                        style="background: #fdfdfd; border-radius: 8px; padding: 10px; min-height: 200px; display: flex; align-items: center; justify-content: center; position: relative;">
                         <img id="dtl-main-img" src=""
                             style="max-width: 100%; max-height: 300px; object-fit: contain; display: none;">
                         <div id="dtl-img-placeholder" class="text-muted small">불러오는 중...</div>
-                    </div>
+                        <div class="position-absolute bottom-0 end-0 p-2 text-muted"
+                            style="font-size: 0.6rem; opacity: 0.5;">
+                            상품 클릭 시 이동 <i data-lucide="external-link" style="width: 10px;"></i>
+                        </div>
+                    </a>
                     <div id="dtl-hmall-link-box" class="mt-2 text-center">
                         <a id="dtl-hmall-link" href="#" target="_blank" class="btn btn-outline-secondary btn-sm w-100"
                             style="font-size: 0.75rem; border-color: #ddd; color: #666;">
@@ -2039,6 +2079,7 @@
                 // Set Hmall link
                 var hmallLink = "https://www.hmall.com/md/pda/itemPtc?slitmCd=" + code;
                 document.getElementById('dtl-hmall-link').href = hmallLink;
+                document.getElementById('dtl-main-img-link').href = hmallLink;
 
                 // Image loading: tryLoadImages encapsulates the logic
                 tryLoadImages(code, mImg, mPlc, item.image);
