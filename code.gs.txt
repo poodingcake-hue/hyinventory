@@ -556,6 +556,19 @@ function manualSync(payload) {
         rawSheet.getRange(1, 1, rawRows.length, 6).setValues(rawRows);
       }
     }
+
+    // 4. Sync '착장내역' (Outfit Data)
+    var outfitSheet = ss.getSheetByName("착장내역");
+    if (outfitSheet && payload.outfits) {
+      var outfitRows = [["상품코드", "상품명", "성함", "사이즈"]];
+      payload.outfits.forEach(function(o) {
+        outfitRows.push([o.code, o.name, o.host, o.size]);
+      });
+      outfitSheet.clearContents();
+      if (outfitRows.length > 1) {
+        outfitSheet.getRange(1, 1, outfitRows.length, 4).setValues(outfitRows);
+      }
+    }
     
     return { success: true, message: "구글 시트 백업 완료" };
   } catch (e) {
