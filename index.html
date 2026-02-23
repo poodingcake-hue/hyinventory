@@ -944,7 +944,7 @@
 
                 // 2. Try Google Apps Script (Cloud Fallback for Mobile/Web)
                 try {
-                    // If we are actually inside GAS environment (embedded)
+                    // Scenario A: Inside GAS environment (embedded)
                     if (typeof google !== 'undefined' && google.script && google.script.run) {
                         return new Promise((resolve, reject) => {
                             google.script.run
@@ -953,18 +953,14 @@
                         });
                     }
 
-                    // Otherwise, use direct Fetch to GAS Web App (CORS)
-                    const gasResponse = await fetch(GAS_URL, {
-                        method: 'POST',
-                        mode: 'no-cors', // GAS redirected posts usually work best with no-cors or simple redirects
-                        body: JSON.stringify({ action: action, payload: payload })
-                    });
+                    // Scenario B: External Web (GitHub Pages/Mobile) - USE GET for DATA FETCHING
+                    if (action === "getInitialData") {
+                        const getUrl = `${GAS_URL}?action=${action}`;
+                        const res = await fetch(getUrl);
+                        return await res.json();
+                    }
 
-                    // Note: 'no-cors' won't let us read the JSON, so for 'read' actions like refreshData, 
-                    // we might need a different strategy or ensure GAS handles simple GET/POST properly.
-                    // For WRITE actions (submit), no-cors is often enough to send the fire-and-forget data.
-
-                    // REFINED: Since we need JSON for most things, we try regular fetch.
+                    // Scenario C: External Web (GitHub Pages/Mobile) - USE POST for UPDATES
                     const corsRes = await fetch(GAS_URL, {
                         method: 'POST',
                         body: JSON.stringify({ action: action, payload: payload })
@@ -972,7 +968,7 @@
                     return await corsRes.json();
                 } catch (e) {
                     console.error("Cloud API error:", e);
-                    throw new Error("서버에 연결할 수 없습니다. (로컬/클라우드 모두 실패)");
+                    throw new Error("서버에 연결할 수 없습니다. (구글 시트 URL 권한이 '전체 공개'인지 확인해 주세요)");
                 }
             }
 
