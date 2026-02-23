@@ -256,10 +256,35 @@
             width: 100%;
             height: calc(100% - 60px);
             background: white;
-            z-index: 1040;
+            z-index: 2100;
+            /* Above main header */
             display: none;
             overflow-y: auto;
             flex-direction: column;
+        }
+
+        .mobile-detail-nav {
+            display: none;
+            padding: 0.75rem 1.25rem;
+            background: #fff;
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        @media (max-width: 767px) {
+            .detail-overlay {
+                top: 0;
+                height: 100%;
+                z-index: 3000;
+            }
+
+            .mobile-detail-nav {
+                display: flex;
+            }
         }
 
         .img-link-wrapper {
@@ -861,7 +886,13 @@
     </section>
 
     <div id="detailOverlay" class="detail-overlay">
-        <!-- Detail header removed, using main header -->
+        <div class="mobile-detail-nav">
+            <button class="nav-btn p-0" onclick="closeDetail()" style="color: var(--text-dark);">
+                <i data-lucide="chevron-left" style="width: 24px; height: 24px;"></i>
+            </button>
+            <span class="fw-bold" style="font-size: 0.95rem;">상품 상세정보</span>
+            <div style="width: 24px;"></div> <!-- Spacer -->
+        </div>
         <div class="detail-container">
             <div class="detail-sidebar">
                 <div class="variant-box">
@@ -874,17 +905,8 @@
                         <img id="dtl-main-img" src=""
                             style="max-width: 100%; max-height: 300px; object-fit: contain; display: none;">
                         <div id="dtl-img-placeholder" class="text-muted small">불러오는 중...</div>
-                        <div class="position-absolute bottom-0 end-0 p-2 text-muted"
-                            style="font-size: 0.6rem; opacity: 0.5;">
-                            상품 클릭 시 이동 <i data-lucide="external-link" style="width: 10px;"></i>
-                        </div>
                     </a>
-                    <div id="dtl-hmall-link-box" class="mt-2 text-center">
-                        <a id="dtl-hmall-link" href="#" target="_blank" class="btn btn-outline-secondary btn-sm w-100"
-                            style="font-size: 0.75rem; border-color: #ddd; color: #666;">
-                            Hmall 상세페이지 <i data-lucide="external-link" style="width: 12px; vertical-align: middle;"></i>
-                        </a>
-                    </div>
+
                     <div class="variant-list" id="dtl-variant-list" style="display: none;"></div>
                 </div>
                 <div class="variant-box">
