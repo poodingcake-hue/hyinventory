@@ -140,6 +140,31 @@
             }
         }
 
+        .action-icons {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-left: auto;
+            padding-right: 10px;
+        }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 5px;
+            transition: color 0.2s, transform 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-btn:hover {
+            color: var(--primary-blue);
+            transform: scale(1.1);
+        }
+
         .content-area {
             padding: 1.5rem;
             max-width: 1400px;
@@ -751,15 +776,9 @@
         <div class="header-inner">
             <a href="#" class="logo">현대PB</a>
             <div class="nav-btns">
-                <button class="nav-btn" onclick="backupToSheets()" title="구글 시트에 현재 데이터 백업">구글 시트 백업</button>
-                <button class="nav-btn" onclick="confirmUpdateGithubFromDrive()" title="구글 시트 데이터로 깃허브 업데이트">깃허브
-                    업데이트</button>
                 <button class="nav-btn" onclick="switchMainView('register', this)">상품등록</button>
                 <button class="nav-btn" onclick="switchMainView('schedule', this)">편성표</button>
                 <button class="nav-btn active" onclick="switchMainView('inventory', this)">재고관리</button>
-                <button class="refresh-btn" onclick="refreshData()" title="새로고침">
-                    <i data-lucide="refresh-cw" style="width: 18px"></i>
-                </button>
             </div>
         </div>
     </header>
@@ -793,9 +812,19 @@
 
     <section id="view-register" style="display:none;">
         <div class="content-area" style="max-width: 1200px; margin: 2rem auto;">
-            <div class="reg-tabs">
-                <div class="reg-tab active" id="tab-reg-new" onclick="switchRegMode('new')">새 상품 등록</div>
-                <div class="reg-tab" id="tab-reg-add" onclick="switchRegMode('add')">상품 추가 입고</div>
+            <div class="d-flex align-items-center mb-0">
+                <div class="reg-tabs mb-0">
+                    <div class="reg-tab active" id="tab-reg-new" onclick="switchRegMode('new')">새 상품 등록</div>
+                    <div class="reg-tab" id="tab-reg-add" onclick="switchRegMode('add')">상품 추가 입고</div>
+                </div>
+                <div class="action-icons">
+                    <button class="icon-btn" onclick="backupToSheets()" title="구글 시트 백업">
+                        <i data-lucide="cloud" style="width: 20px;"></i>
+                    </button>
+                    <button class="icon-btn" onclick="confirmUpdateGithubFromDrive()" title="깃허브 업데이트">
+                        <i data-lucide="refresh-cw" style="width: 20px;"></i>
+                    </button>
+                </div>
             </div>
 
             <div class="row g-4">
