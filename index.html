@@ -751,6 +751,9 @@
         <div class="header-inner">
             <a href="#" class="logo">현대PB</a>
             <div class="nav-btns">
+                <button class="nav-btn" onclick="backupToSheets()" title="구글 시트에 현재 데이터 백업">구글 시트 백업</button>
+                <button class="nav-btn" onclick="confirmUpdateGithubFromDrive()" title="구글 시트 데이터로 깃허브 업데이트">깃허브
+                    업데이트</button>
                 <button class="nav-btn" onclick="switchMainView('register', this)">상품등록</button>
                 <button class="nav-btn" onclick="switchMainView('schedule', this)">편성표</button>
                 <button class="nav-btn active" onclick="switchMainView('inventory', this)">재고관리</button>
@@ -839,11 +842,6 @@
                                     placeholder="95, 100 (콤마구분)">
                             </div>
                         </div>
-                        <button class="btn btn-primary w-100 py-3 mt-3 fw-bold" id="reg-submit-btn"
-                            onclick="submitRegistration()"
-                            style="background: linear-gradient(135deg, var(--primary-blue), var(--primary-dark)); border: none; border-radius: 12px; font-size: 1rem; box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3); transition: transform 0.2s;">
-                            등록 완료 (마스터 + 초기재고)
-                        </button>
                     </div>
                 </div>
                 <!-- Right: Stock Matrix & Preview -->
@@ -876,6 +874,11 @@
                         <div id="reg-matrix-container" class="table-responsive">
                             <p class="text-muted small">색상과 사이즈를 입력하면 재고 입력 표가 생성됩니다.</p>
                         </div>
+                        <button class="btn btn-primary w-100 py-3 mt-4 fw-bold" id="reg-submit-btn"
+                            onclick="submitRegistration()"
+                            style="background: linear-gradient(135deg, var(--primary-blue), var(--primary-dark)); border: none; border-radius: 12px; font-size: 1rem; box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3); transition: transform 0.2s;">
+                            등록 완료 (마스터 + 초기재고)
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1065,6 +1068,7 @@
 
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
         <script>
+            const API_BASE = "http://localhost:3000/api";
             var DATA = { items: [], schedule: [], stockMap: {}, rentals: [], outfits: [], handlings: [], dates: [], brands: [], categories: [], variationsMap: {} };
             var DATA_itemsMap = {}; // O(1) lookup map: code -> item
             var curItem = null;
@@ -1122,6 +1126,15 @@
                     alert("백업 중 오류 발생: " + err.message);
                 } finally {
                     showLoader(false);
+                }
+            }
+
+            async function confirmUpdateGithubFromDrive() {
+                const check = prompt("'깃허브업데이트' 라고 입력하시면 구글 드라이브의 데이터로 깃허브를 업데이트합니다.\n(주의: 깃허브의 현재 데이터가 덮어씌워집니다.)");
+                if (check === '깃허브업데이트') {
+                    runMigration();
+                } else if (check !== null) {
+                    alert("정확한 안내 문구를 입력해주세요.");
                 }
             }
 
