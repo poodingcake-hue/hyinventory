@@ -1603,6 +1603,37 @@
                 }
             }
 
+            // 전체 편성표(schedule_all.json)에서 우리 재고 코드와 일치하는 오늘 이후 방송만 골라 DATA.schedule/dates에 넣는다.
+            // 불러오기에 실패하면 data.json에 들어 있던 기존 편성표를 그대로 쓴다.
+            async function applyLiveSchedule() {
+                var urls = [
+                    "https://raw.githubusercontent.com/" + GITHUB_REPO + "/main/schedule_all.json?t=" + Date.now(),
+                    "schedule_all.json?t=" + Date.now()
+                ];
+                for (var u = 0; u < urls.length; u++) {
+                    try {
+                        var res = await fetch(urls[u], { cache: "no-store" });
+                        if (!res.ok) continue;
+                        var all = await res.json();
+                        if (!all || !Array.isArray(all.schedule)) continue;
+
+                        var our = {};
+                        DATA.items.forEach(function (i) { our[String(i.code).trim()] = true; });
+                        var d = new Date();
+                        var today = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+
+                        var matched = all.schedule.filter(function (r) {
+                            return our[String(r.code).trim()] && r.date >= today;
+                        });
+                        DATA.schedule = matched;
+                        DATA.dates = Array.from(new Set(matched.map(function (r) { return r.date; }))).sort();
+                        return;
+                    } catch (e) {
+                        console.warn("schedule_all.json 로드 실패, 다음 주소 시도:", e);
+                    }
+                }
+            }
+
             async function refreshData(callback, skipUI) {
                 showLoader(true);
                 try {
@@ -1619,6 +1650,10 @@
                         if (!DATA.handlings) DATA.handlings = [];
                         if (!DATA.schedule) DATA.schedule = [];
                         if (!DATA.dates) DATA.dates = [];
+
+                        // 편성표: 크롤러가 매일 저장하는 전체 편성표(schedule_all.json)를 '지금 재고'와 바로 맞춰본다.
+                        // (재고를 새로 등록해도 다음 크롤링을 기다릴 필요 없이 즉시 반영됨)
+                        await applyLiveSchedule();
 
                         if (!skipUI) initUI();
                     } else {
