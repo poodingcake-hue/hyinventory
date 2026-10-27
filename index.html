@@ -1115,6 +1115,9 @@
 
             // 토큰은 코드에 넣지 않습니다. 저장(쓰기)할 때 한 번 입력 -> 이 기기 브라우저(localStorage)에만 보관.
             // 조회(읽기)는 공개 저장소라 토큰 없이도 동작합니다.
+            // Cloudflare Worker 프록시 주소. 설정하면 토큰 입력 없이 저장됩니다 (토큰은 Worker 서버에만 보관).
+            // 비워 두면 기존처럼 저장할 때 토큰을 입력받는 방식으로 동작합니다.
+            const API_PROXY = "";
             const TOKEN_KEY = 'HY_GH_TOKEN';
             function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch (e) { return ""; } }
             function setToken(t) { try { if (t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY); } catch (e) {} }
@@ -1173,7 +1176,8 @@
             }
 
             async function callApi(action, payload) {
-                const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE}`;
+                const useProxy = !!API_PROXY;
+                const url = useProxy ? API_PROXY : `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE}`;
                 const isRead = action === "getInitialData";
                 const makeHeaders = (t) => {
                     const h = { "Accept": "application/vnd.github.v3+json" };
@@ -1181,9 +1185,9 @@
                     return h;
                 };
 
-                let token = getToken();
+                let token = useProxy ? "" : getToken();
                 // 쓰기 작업인데 토큰이 없으면 먼저 입력받는다
-                if (!isRead && !token) {
+                if (!isRead && !token && !useProxy) {
                     token = askToken();
                     if (!token) return { success: false, error: "토큰이 입력되지 않아 저장하지 않았습니다." };
                 }
@@ -1260,7 +1264,7 @@
                     }
 
                     // 2. Push updated file back to GitHub
-                    if (!token) {
+                    if (!token && !useProxy) {
                         token = askToken();
                         if (!token) throw new Error("토큰이 입력되지 않아 저장하지 않았습니다.");
                         headers = makeHeaders(token);
