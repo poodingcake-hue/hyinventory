@@ -1113,11 +1113,16 @@
             const GITHUB_REPO = "poodingcake-hue/hyinventory";
             const GITHUB_FILE = "data.json";
 
-            // To prevent simple scanning, the token is split
-            const _p1 = "ghp_bFoGOGrijQl";
-            const _p2 = "HFNVd3Ztopwt2JL";
-            const _p3 = "hzBX1xIVJr";
-            const GITHUB_TOKEN = _p1 + _p2 + _p3;
+            // 토큰은 코드에 넣지 않습니다. 저장(쓰기)할 때 한 번 입력 -> 이 기기 브라우저(localStorage)에만 보관.
+            // 조회(읽기)는 공개 저장소라 토큰 없이도 동작합니다.
+            const TOKEN_KEY = 'HY_GH_TOKEN';
+            function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch (e) { return ""; } }
+            function setToken(t) { try { if (t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY); } catch (e) {} }
+            function askToken() {
+                const t = prompt("저장하려면 GitHub 토큰이 필요합니다.\n\nhyinventory 저장소의 Contents(읽기/쓰기) 권한을 가진 fine-grained 토큰을 붙여넣어 주세요.\n(이 기기의 브라우저에만 저장됩니다)");
+                if (t && t.trim()) { setToken(t.trim()); return t.trim(); }
+                return "";
+            }
 
             async function backupToSheets() {
                 if (!confirm("현재 데이터를 구글 시트에 백업하시겠습니까? (GitHub 데이터 -> Google Sheets)")) return;
@@ -1169,14 +1174,32 @@
 
             async function callApi(action, payload) {
                 const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE}`;
-                const headers = {
-                    "Authorization": `token ${GITHUB_TOKEN}`,
-                    "Accept": "application/vnd.github.v3+json"
+                const isRead = action === "getInitialData";
+                const makeHeaders = (t) => {
+                    const h = { "Accept": "application/vnd.github.v3+json" };
+                    if (t) h["Authorization"] = `token ${t}`;
+                    return h;
                 };
 
+                let token = getToken();
+                // 쓰기 작업인데 토큰이 없으면 먼저 입력받는다
+                if (!isRead && !token) {
+                    token = askToken();
+                    if (!token) return { success: false, error: "토큰이 입력되지 않아 저장하지 않았습니다." };
+                }
+                let headers = makeHeaders(token);
+
                 // 1. Fetch current file (to get content and SHA for updates)
-                const getRes = await fetch(url, { headers });
-                if (!getRes.ok) throw new Error("GitHub에서 데이터를 가져올 수 없습니다.");
+                let getRes = await fetch(url, { headers, cache: "no-store" });
+                if ((getRes.status === 401 || getRes.status === 403) && token) {
+                    // 저장돼 있던 토큰이 만료/폐기됨 -> 지우고 익명으로 읽기 재시도
+                    setToken(""); token = "";
+                    headers = makeHeaders("");
+                    getRes = await fetch(url, { headers, cache: "no-store" });
+                }
+                if (!getRes.ok) {
+                    throw new Error(`GitHub에서 데이터를 가져올 수 없습니다. (HTTP ${getRes.status})` + (getRes.status === 403 ? " 잠시 후 다시 시도해주세요." : ""));
+                }
                 const fileData = await getRes.json();
                 const sha = fileData.sha;
                 const content = JSON.parse(decodeURIComponent(escape(atob(fileData.content))));
@@ -1237,6 +1260,11 @@
                     }
 
                     // 2. Push updated file back to GitHub
+                    if (!token) {
+                        token = askToken();
+                        if (!token) throw new Error("토큰이 입력되지 않아 저장하지 않았습니다.");
+                        headers = makeHeaders(token);
+                    }
                     const updatedBase64 = btoa(unescape(encodeURIComponent(JSON.stringify(updatedContent, null, 2))));
                     const putRes = await fetch(url, {
                         method: "PUT",
@@ -1248,7 +1276,14 @@
                         })
                     });
 
-                    if (!putRes.ok) throw new Error("GitHub 저장에 실패했습니다.");
+                    if (!putRes.ok) {
+                        if (putRes.status === 401 || putRes.status === 403 || putRes.status === 404) {
+                            setToken(""); // 잘못된 토큰은 지워서 다음 저장 때 다시 입력받는다
+                            throw new Error("토큰이 유효하지 않거나 권한이 없습니다. 다시 저장하면 토큰을 새로 입력할 수 있습니다.");
+                        }
+                        if (putRes.status === 409) throw new Error("다른 곳에서 먼저 수정됐습니다. 새로고침 후 다시 시도해주세요.");
+                        throw new Error(`GitHub 저장에 실패했습니다. (HTTP ${putRes.status})`);
+                    }
 
                     // Update global DATA so UI reflects changes immediately
                     // Note: DATA will be fully recalculated in the next refreshData() call,
