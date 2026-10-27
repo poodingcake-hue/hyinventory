@@ -106,6 +106,24 @@ async def crawl_hmall() -> list:
                         }
                         if (currentDate) lastDate = currentDate;
 
+                        // 같은 상품코드 링크가 카드 안에 여러 개(이미지/상품명/구매하기/상담신청 등) 있으므로
+                        // 코드별로 모아서 '상품명다운' 텍스트 하나만 고른다.
+                        const JUNK_EXACT = /^(구매하기|상담신청|상담\s*신청|방송중\s*구매가능|구매\s*가능|Talk\s*참여|알리미|방송알리미|재입고알림|방송예정|더보기|LIVE|품절|매진|\d{1,3}\s*%|[\d,.\s]*원?)$/;
+                        const cleanName = (raw) => {
+                            const lines = (raw || "").split('\n').map(s => s.trim()).filter(Boolean);
+                            for (let line of lines) {
+                                if (JUNK_EXACT.test(line)) continue;
+                                // 가격/버튼 텍스트가 이어붙은 경우 그 앞에서 자른다
+                                line = line.replace(/\d{1,3}(,\d{3})+\s*원.*$/, "");
+                                line = line.replace(/\s*\d{1,2}\s*%\s*$/, "");
+                                line = line.replace(/(구매하기|상담신청|방송중\s*구매가능|알리미|재입고알림|방송예정|카카오\(현대\)|무료배송|판매가|할인가).*$/, "");
+                                line = line.replace(/^\[?방송알리미\]?/, "").trim();
+                                if (line.length >= 2 && !JUNK_EXACT.test(line)) return line;
+                            }
+                            return "";
+                        };
+
+                        const bestByCode = {};
                         const links = Array.from(container.querySelectorAll('a[href*="slitmCd="], [data-slitm-cd]'));
                         links.forEach(l => {
                             let code = l.getAttribute('data-slitm-cd');
@@ -114,20 +132,12 @@ async def crawl_hmall() -> list:
                                 if (match) code = match[1];
                             }
                             if (!code) return;
-
-                            let nameText = (l.innerText || "").trim();
-                            if (!nameText) return;
-                            
-                            let name = nameText.split('\n')[0].split('%')[0].trim();
-                            
-                            // "알리미" 등 정제
-                            const junkPatterns = [/방송알리미/g, /알리미/g, /재입고알림/g, /방송예정/g, /판매가.*/g, /할인가.*/g];
-                            junkPatterns.forEach(pat => { name = name.replace(pat, ""); });
-                            name = name.trim();
-                            
-                            if (name.length >= 2) {
-                                items.push({ time: lastTime, code, name, itemDate: lastDate });
-                            }
+                            const nm = cleanName(l.innerText || l.textContent || "");
+                            // 가장 긴(=가장 상품명다운) 이름을 채택. 이름이 없어도 코드는 남긴다(재고 매칭은 코드 기준).
+                            if (!(code in bestByCode) || nm.length > bestByCode[code].length) bestByCode[code] = nm;
+                        });
+                        Object.entries(bestByCode).forEach(([code, name]) => {
+                            items.push({ time: lastTime, code, name, itemDate: lastDate });
                         });
                     });
                     return { items, lastDate, lastTime };
@@ -165,6 +175,9 @@ async def crawl_hmall() -> list:
                     }
                     found_new_in_scroll = True
                     total_items_captured += 1
+                elif len(item["name"]) > len(results_map[key]["name"]):
+                    # 스크롤 중 이름이 비어 있던 항목이 나중에 정상 이름으로 잡히면 보완
+                    results_map[key]["name"] = item["name"]
 
             scroll_count += 1
             prev_h = await page.evaluate("document.body.scrollHeight")
