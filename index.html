@@ -878,25 +878,34 @@
                     <div class="info-card h-100" style="min-height: 400px;">
                         <!-- Image Preview (Only for New Mode) -->
                         <div id="reg-image-section">
-                            <div class="d-flex justify-content-center mb-4">
-                                <div id="reg-image-preview-container"
-                                    style="max-width: 100%; min-height: 50px; overflow: hidden; background: transparent;">
-                                    <img id="reg-image-preview" src=""
-                                        style="max-width: 100%; max-height: 400px; display: none; height: auto; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-                                    <div id="reg-image-placeholder"
-                                        class="d-flex align-items-center justify-content-center h-100 text-muted"
-                                        style="font-size: 0.8rem; text-align: center; padding: 20px; min-width: 200px; background: #f9f9f9; border: 1px solid #eee; border-radius: 12px;">
-                                        상품 이미지가 여기에 표시됩니다</div>
+                            <div class="row g-2 mb-3">
+                                <div class="col-6 text-center">
+                                    <div class="small text-muted mb-1">웹 이미지 (클릭하면 상품페이지)</div>
+                                    <a id="reg-image-link" href="#" target="_blank" rel="noopener"
+                                        style="display:block; cursor:pointer;" title="hmall 상품페이지 열기">
+                                        <img id="reg-image-preview" src=""
+                                            style="max-width: 100%; max-height: 200px; display: none; height: auto; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin: 0 auto;">
+                                        <div id="reg-image-placeholder"
+                                            class="d-flex align-items-center justify-content-center text-muted"
+                                            style="font-size: 0.75rem; text-align: center; padding: 10px; height: 200px; background: #f9f9f9; border: 1px solid #eee; border-radius: 12px;">
+                                            상품 이미지가 여기에 표시됩니다</div>
+                                    </a>
                                 </div>
-                            </div>
-                            <div class="text-center mb-4" id="reg-image-tools">
-                                <input type="file" id="reg-image-file" accept="image/*" style="display:none"
-                                    onchange="handleRegImageFile(this.files[0]); this.value='';">
-                                <button type="button" class="btn btn-outline-primary btn-sm"
-                                    onclick="document.getElementById('reg-image-file').click()">내 이미지 올리기</button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="reg-image-reset"
-                                    style="display:none;" onclick="clearCustomImage()">웹 이미지로 되돌리기</button>
-                                <div class="small text-muted mt-2" id="reg-image-hint">캡처한 뒤 이 화면에서 Ctrl+V로 붙여넣거나, 이미지 파일을 끌어다 놓을 수도 있습니다.</div>
+                                <div class="col-6 text-center">
+                                    <div class="small text-muted mb-1">내 이미지 (캡처 후 Ctrl+V)</div>
+                                    <input type="file" id="reg-image-file" accept="image/*" style="display:none"
+                                        onchange="handleRegImageFile(this.files[0]); this.value='';">
+                                    <div id="reg-custom-box" onclick="document.getElementById('reg-image-file').click()"
+                                        style="cursor:pointer; height: 200px; border: 2px dashed #b8c4d6; border-radius: 12px; background: #f9fbff; display:flex; align-items:center; justify-content:center; overflow:hidden;"
+                                        title="클릭해서 파일 선택 / Ctrl+V 붙여넣기 / 끌어다 놓기">
+                                        <img id="reg-custom-preview" src="" style="display:none; max-width:100%; max-height:200px; height:auto;">
+                                        <div id="reg-custom-placeholder" class="text-muted" style="font-size:0.75rem; padding:10px;">
+                                            여기에 Ctrl+V<br>붙여넣기<br>(클릭: 파일 선택,<br>끌어다 놓기 가능)</div>
+                                    </div>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm mt-1" id="reg-image-reset"
+                                        style="display:none;" onclick="clearCustomImage()">내 이미지 지우기</button>
+                                    <div class="small text-muted mt-1" id="reg-image-hint"></div>
+                                </div>
                             </div>
                         </div>
 
@@ -2076,21 +2085,27 @@
             }
 
             function showRegCustomImage() {
-                var img = document.getElementById('reg-image-preview');
-                var placeholder = document.getElementById('reg-image-placeholder');
-                img.onerror = null; img.onload = null;
+                var img = document.getElementById('reg-custom-preview');
                 img.src = regCustomImage;
                 img.style.display = 'block';
-                placeholder.style.display = 'none';
+                document.getElementById('reg-custom-placeholder').style.display = 'none';
+                document.getElementById('reg-custom-box').style.borderStyle = 'solid';
                 document.getElementById('reg-image-reset').style.display = 'inline-block';
-                document.getElementById('reg-image-hint').innerText = "내 이미지를 사용합니다. (등록 완료 시 저장됩니다)";
+                document.getElementById('reg-image-hint').innerText = "내 이미지로 등록됩니다.";
             }
 
             function clearCustomImage() {
                 regCustomImage = null;
+                resetCustomBox();
+            }
+
+            function resetCustomBox() {
+                var img = document.getElementById('reg-custom-preview');
+                img.src = ''; img.style.display = 'none';
+                document.getElementById('reg-custom-placeholder').style.display = 'block';
+                document.getElementById('reg-custom-box').style.borderStyle = 'dashed';
                 document.getElementById('reg-image-reset').style.display = 'none';
-                document.getElementById('reg-image-hint').innerText = "캡처한 뒤 이 화면에서 Ctrl+V로 붙여넣거나, 이미지 파일을 끌어다 놓을 수도 있습니다.";
-                updateRegImage();
+                document.getElementById('reg-image-hint').innerText = "";
             }
 
             // 등록 화면에서 이미지를 붙여넣거나 끌어다 놓으면 처리 (텍스트 붙여넣기는 그대로 둔다)
@@ -2148,10 +2163,18 @@
             }
 
             function updateRegImage() {
-                if (regCustomImage && regMode === 'new') { showRegCustomImage(); return; }
                 var code = document.getElementById('reg-code').value.trim();
                 var img = document.getElementById('reg-image-preview');
                 var placeholder = document.getElementById('reg-image-placeholder');
+
+                var link = document.getElementById('reg-image-link');
+                if (code.replace(/\D/g, '').length >= 10) {
+                    link.href = 'https://www.hmall.com/md/pda/itemPtc?slitmCd=' + encodeURIComponent(code);
+                    link.style.pointerEvents = '';
+                } else {
+                    link.removeAttribute('href');
+                    link.style.pointerEvents = 'none';
+                }
 
                 if (!code || code.replace(/\D/g, '').length < 10) {
                     img.style.display = 'none';
@@ -2171,7 +2194,7 @@
                     category: document.getElementById('reg-category').value.trim(),
                     colors: document.getElementById('reg-colors').value.split(',').map(function (s) { return s.trim(); }).filter(function (s) { return s !== ""; }),
                     sizes: document.getElementById('reg-sizes').value.split(',').map(function (s) { return s.trim(); }).filter(function (s) { return s !== ""; }),
-                    image: (regMode === 'new' && document.getElementById('reg-image-preview').style.display === 'block') ? document.getElementById('reg-image-preview').src : ""
+                    image: (regMode === 'new' && !regCustomImage && document.getElementById('reg-image-preview').style.display === 'block') ? document.getElementById('reg-image-preview').src : ""
                 };
 
                 // Preserve image in add mode if empty
@@ -2216,8 +2239,7 @@
                             // Reset UI states
                             if (regMode === 'new') {
                                 regCustomImage = null;
-                                document.getElementById('reg-image-reset').style.display = 'none';
-                                document.getElementById('reg-image-hint').innerText = "캡처한 뒤 이 화면에서 Ctrl+V로 붙여넣거나, 이미지 파일을 끌어다 놓을 수도 있습니다.";
+                                resetCustomBox();
                                 updateRegImage();
                             } else {
                                 document.getElementById('reg-existing-matrix').innerHTML = '<div class="text-muted small p-4 text-center bg-light rounded-3">기존 상품 정보가 없습니다.</div>';
