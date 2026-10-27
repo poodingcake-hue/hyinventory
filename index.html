@@ -889,6 +889,15 @@
                                         상품 이미지가 여기에 표시됩니다</div>
                                 </div>
                             </div>
+                            <div class="text-center mb-4" id="reg-image-tools">
+                                <input type="file" id="reg-image-file" accept="image/*" style="display:none"
+                                    onchange="handleRegImageFile(this.files[0]); this.value='';">
+                                <button type="button" class="btn btn-outline-primary btn-sm"
+                                    onclick="document.getElementById('reg-image-file').click()">내 이미지 올리기</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="reg-image-reset"
+                                    style="display:none;" onclick="clearCustomImage()">웹 이미지로 되돌리기</button>
+                                <div class="small text-muted mt-2" id="reg-image-hint">캡처한 뒤 이 화면에서 Ctrl+V로 붙여넣거나, 이미지 파일을 끌어다 놓을 수도 있습니다.</div>
+                            </div>
                         </div>
 
                         <!-- Existing Stock (Only for Add Mode) -->
@@ -1931,6 +1940,23 @@
                     return;
                 }
 
+                // 1-1. 직접 올린 이미지(우리 저장소 images/)는 먼저 단독으로 시도, 실패하면 기존 방식으로 계속
+                if (initialUrl && initialUrl.indexOf('raw.githubusercontent.com/') > -1 && initialUrl.indexOf('/images/') > -1) {
+                    placeholderEl.style.display = 'flex';
+                    placeholderEl.innerText = '불러오는 중...';
+                    imgEl.style.display = 'none';
+                    var own = new Image();
+                    own.onload = function () {
+                        imageCache[code] = initialUrl;
+                        imgEl.src = initialUrl;
+                        imgEl.style.display = 'block';
+                        placeholderEl.style.display = 'none';
+                    };
+                    own.onerror = function () { tryLoadImages(code, imgEl, placeholderEl, null); };
+                    own.src = initialUrl;
+                    return;
+                }
+
                 // 2. Prepare URL sequence
                 var urls = [];
                 if (initialUrl) urls.push(initialUrl);
@@ -2008,7 +2034,121 @@
                     .fetchProxyImage(code);
             }
 
+            // ---------------------------------------------------
+            // 내가 캡처한 이미지로 등록 (웹 이미지 대신)
+            //  - 파일 선택 / Ctrl+V 붙여넣기 / 끌어다 놓기
+            //  - 가로세로 최대 1000px JPEG로 줄여서 GitHub 저장소 images/<상품코드>.jpg 에 저장
+            // ---------------------------------------------------
+            var regCustomImage = null; // 줄여진 JPEG data URL (등록 완료 시 GitHub에 업로드)
+
+            function resizeToJpegDataUrl(file, maxSide, quality) {
+                return new Promise(function (resolve, reject) {
+                    var reader = new FileReader();
+                    reader.onerror = function () { reject(new Error("이미지 파일을 읽을 수 없습니다.")); };
+                    reader.onload = function () {
+                        var img = new Image();
+                        img.onerror = function () { reject(new Error("이미지 형식을 읽을 수 없습니다.")); };
+                        img.onload = function () {
+                            var scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+                            var w = Math.max(1, Math.round(img.width * scale));
+                            var h = Math.max(1, Math.round(img.height * scale));
+                            var canvas = document.createElement('canvas');
+                            canvas.width = w; canvas.height = h;
+                            var ctx = canvas.getContext('2d');
+                            ctx.fillStyle = '#ffffff';            // 투명 PNG 배경은 흰색으로
+                            ctx.fillRect(0, 0, w, h);
+                            ctx.drawImage(img, 0, 0, w, h);
+                            resolve(canvas.toDataURL('image/jpeg', quality));
+                        };
+                        img.src = reader.result;
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            function handleRegImageFile(file) {
+                if (!file) return;
+                if (!/^image\//.test(file.type || "")) { alert("이미지 파일만 올릴 수 있습니다."); return; }
+                resizeToJpegDataUrl(file, 1000, 0.85).then(function (dataUrl) {
+                    regCustomImage = dataUrl;
+                    showRegCustomImage();
+                }).catch(function (err) { alert(err.message); });
+            }
+
+            function showRegCustomImage() {
+                var img = document.getElementById('reg-image-preview');
+                var placeholder = document.getElementById('reg-image-placeholder');
+                img.onerror = null; img.onload = null;
+                img.src = regCustomImage;
+                img.style.display = 'block';
+                placeholder.style.display = 'none';
+                document.getElementById('reg-image-reset').style.display = 'inline-block';
+                document.getElementById('reg-image-hint').innerText = "내 이미지를 사용합니다. (등록 완료 시 저장됩니다)";
+            }
+
+            function clearCustomImage() {
+                regCustomImage = null;
+                document.getElementById('reg-image-reset').style.display = 'none';
+                document.getElementById('reg-image-hint').innerText = "캡처한 뒤 이 화면에서 Ctrl+V로 붙여넣거나, 이미지 파일을 끌어다 놓을 수도 있습니다.";
+                updateRegImage();
+            }
+
+            // 등록 화면에서 이미지를 붙여넣거나 끌어다 놓으면 처리 (텍스트 붙여넣기는 그대로 둔다)
+            document.addEventListener('paste', function (e) {
+                var view = document.getElementById('view-register');
+                if (!view || view.offsetParent === null || regMode !== 'new') return;
+                var items = (e.clipboardData && e.clipboardData.items) || [];
+                for (var k = 0; k < items.length; k++) {
+                    if (items[k].type && items[k].type.indexOf('image') === 0) {
+                        handleRegImageFile(items[k].getAsFile());
+                        e.preventDefault();
+                        return;
+                    }
+                }
+            });
+            document.addEventListener('dragover', function (e) {
+                var view = document.getElementById('view-register');
+                if (view && view.offsetParent !== null && regMode === 'new') e.preventDefault();
+            });
+            document.addEventListener('drop', function (e) {
+                var view = document.getElementById('view-register');
+                if (!view || view.offsetParent === null || regMode !== 'new') return;
+                var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+                if (f && /^image\//.test(f.type)) { e.preventDefault(); handleRegImageFile(f); }
+            });
+
+            // GitHub 저장소 images/<상품코드>.jpg 에 업로드하고 화면에서 쓸 주소를 돌려준다
+            async function uploadImageToGithub(code, dataUrl) {
+                var safe = String(code).replace(/[^0-9A-Za-z_-]/g, "");
+                if (!safe) throw new Error("상품코드가 올바르지 않습니다.");
+                var path = "images/" + safe + ".jpg";
+                var apiUrl = "https://api.github.com/repos/" + GITHUB_REPO + "/contents/" + path;
+                var token = getToken();
+                if (!token) {
+                    token = askToken();
+                    if (!token) throw new Error("토큰이 입력되지 않아 이미지를 저장하지 않았습니다.");
+                }
+                var headers = { "Authorization": "token " + token, "Accept": "application/vnd.github.v3+json" };
+
+                // 같은 코드의 이미지가 이미 있으면 덮어쓰기 위해 sha 필요
+                var sha;
+                var g = await fetch(apiUrl, { headers: headers, cache: "no-store" });
+                if (g.ok) { sha = (await g.json()).sha; }
+                else if (g.status === 401 || g.status === 403) { setToken(""); throw new Error("토큰이 유효하지 않거나 권한이 없습니다. 다시 저장하면 토큰을 새로 입력할 수 있습니다."); }
+
+                var body = { message: "Add product image " + safe, content: dataUrl.split(",")[1] };
+                if (sha) body.sha = sha;
+                var put = await fetch(apiUrl, { method: "PUT", headers: headers, body: JSON.stringify(body) });
+                if (!put.ok) {
+                    if (put.status === 401 || put.status === 403 || put.status === 404) { setToken(""); throw new Error("토큰이 유효하지 않거나 권한이 없습니다."); }
+                    throw new Error("이미지 저장에 실패했습니다. (HTTP " + put.status + ")");
+                }
+                // ?v= : 같은 코드로 다시 올려도 캐시 때문에 옛 이미지가 보이지 않게 함
+                return "https://raw.githubusercontent.com/" + GITHUB_REPO + "/main/" + path + "?v=" + Date.now();
+            }
+
             function updateRegImage() {
+                if (regCustomImage && regMode === 'new') { showRegCustomImage(); return; }
                 var code = document.getElementById('reg-code').value.trim();
                 var img = document.getElementById('reg-image-preview');
                 var placeholder = document.getElementById('reg-image-placeholder');
@@ -2057,6 +2197,7 @@
                     }
                 });
 
+                var run = function () {
                 showLoader(true);
                 callApi('registerProductData', { master: master, stocks: stocks })
                     .then(function (res) {
@@ -2074,6 +2215,9 @@
 
                             // Reset UI states
                             if (regMode === 'new') {
+                                regCustomImage = null;
+                                document.getElementById('reg-image-reset').style.display = 'none';
+                                document.getElementById('reg-image-hint').innerText = "캡처한 뒤 이 화면에서 Ctrl+V로 붙여넣거나, 이미지 파일을 끌어다 놓을 수도 있습니다.";
                                 updateRegImage();
                             } else {
                                 document.getElementById('reg-existing-matrix').innerHTML = '<div class="text-muted small p-4 text-center bg-light rounded-3">기존 상품 정보가 없습니다.</div>';
@@ -2090,6 +2234,22 @@
                         showLoader(false);
                         alert("시스템 오류: " + err);
                     });
+                };
+
+                // 내가 올린 이미지가 있으면 GitHub에 먼저 저장 → 그 주소로 상품 등록
+                if (regMode === 'new' && regCustomImage) {
+                    showLoader(true);
+                    uploadImageToGithub(master.code, regCustomImage).then(function (url) {
+                        master.image = url;
+                        showLoader(false);
+                        run();
+                    }).catch(function (err) {
+                        showLoader(false);
+                        alert("이미지 저장 실패: " + err.message);
+                    });
+                } else {
+                    run();
+                }
             }
 
             function renderInventory() {
