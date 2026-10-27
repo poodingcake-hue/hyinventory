@@ -3,9 +3,17 @@ import datetime
 import json
 import os
 import re
+import sys
+from zoneinfo import ZoneInfo
 from playwright.async_api import async_playwright
 
 DATA_FILE = "data.json"
+SCHEDULE_ALL_FILE = "schedule_all.json"  # hmall 전체 편성표(오늘 이후만)
+KST = ZoneInfo("Asia/Seoul")
+
+def now_kst():
+    """GitHub Actions 서버는 UTC라서, '오늘'/'내일' 계산은 반드시 한국 시간 기준으로 한다."""
+    return datetime.datetime.now(KST).replace(tzinfo=None)
 
 async def crawl_hmall() -> list:
     """현대홈쇼핑 방송편성표를 크롤링하여 결과 리스트를 반환합니다."""
@@ -23,7 +31,7 @@ async def crawl_hmall() -> list:
         page = await context.new_page()
 
         url = "https://www.hmall.com/md/dpl/index?mainDispSeq=2&brodType=all"
-        print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] 접속 중: {url}")
+        print(f"[{now_kst().strftime('%H:%M:%S')}] 접속 중: {url}")
 
         try:
             await page.goto(url, wait_until="load", timeout=120000)
@@ -108,7 +116,7 @@ async def crawl_hmall() -> list:
 
                         // 같은 상품코드 링크가 카드 안에 여러 개(이미지/상품명/구매하기/상담신청 등) 있으므로
                         // 코드별로 모아서 '상품명다운' 텍스트 하나만 고른다.
-                        const JUNK_EXACT = /^(구매하기|상담신청|상담\s*신청|방송중\s*구매가능|구매\s*가능|Talk\s*참여|알리미|방송알리미|재입고알림|방송예정|더보기|LIVE|품절|매진|\d{1,3}\s*%|[\d,.\s]*원?)$/;
+                        const JUNK_EXACT = /^(구매하기|상담신청|상담\s*신청|방송중\s*구매가능|방송중\s*상담가능|상담\s*가능|구매\s*가능|Talk\s*참여|알리미|방송알리미|재입고알림|방송예정|더보기|LIVE|품절|매진|\d{1,3}\s*%|[\d,.\s]*원?)$/;
                         const cleanName = (raw) => {
                             const lines = (raw || "").split('\n').map(s => s.trim()).filter(Boolean);
                             for (let line of lines) {
@@ -150,7 +158,7 @@ async def crawl_hmall() -> list:
             current_state["lastDate"] = eval_result["lastDate"]
             current_state["lastTime"] = eval_result["lastTime"]
             
-            today = datetime.datetime.now()
+            today = now_kst()
             year = today.year
             found_new_in_scroll = False
             
@@ -162,7 +170,11 @@ async def crawl_hmall() -> list:
                 elif "월" in raw_date:
                     m = re.search(r"(\d+)월", raw_date)
                     d = re.search(r"(\d+)일", raw_date)
-                    if m and d: dt_obj = datetime.datetime(year, int(m.group(1)), int(d.group(1)))
+                    if m and d:
+                        dt_obj = datetime.datetime(year, int(m.group(1)), int(d.group(1)))
+                        # 12월에 '1월 3일'을 만나면 내년으로 처리 (연말 → 연초)
+                        if dt_obj < today - datetime.timedelta(days=180):
+                            dt_obj = dt_obj.replace(year=year + 1)
                 
                 final_date = dt_obj.strftime("%Y-%m-%d")
                 key = (final_date, item["time"], item["code"])
@@ -232,6 +244,28 @@ def update_data_json(new_schedule):
         print("   - ℹ️ 우리 재고와 일치하는 방송이 없습니다.")
     print(f"📅 대상 날짜 (편성됨): {', '.join(unique_dates)}")
 
+def write_schedule_all(results, today=None):
+    """hmall 전체 편성표 중 '오늘 이후'만 schedule_all.json에 저장 (지난 방송은 버림, 매일 덮어쓰기)."""
+    today = today or now_kst()
+    today_str = today.strftime("%Y-%m-%d")
+    rows = sorted(
+        (r for r in results if r["date"] >= today_str),
+        key=lambda r: (r["date"], r["time"], r["code"]),
+    )
+    lines = [json.dumps(r, ensure_ascii=False) for r in rows]
+    body = ",\n    ".join(lines)
+    text = (
+        '{\n'
+        f'  "updated": "{today.strftime("%Y-%m-%d %H:%M")} KST",\n'
+        f'  "from": "{today_str}",\n'
+        f'  "count": {len(rows)},\n'
+        '  "schedule": [\n    ' + body + '\n  ]\n}\n'
+    )
+    with open(SCHEDULE_ALL_FILE, "w", encoding="utf-8") as f:
+        f.write(text)
+    print(f"✅ {SCHEDULE_ALL_FILE} 저장 완료: 오늘({today_str}) 이후 방송 {len(rows)}개 (지난 방송 {len(results) - len(rows)}개 제외)")
+    return rows
+
 async def main():
     print("=" * 50)
     print("  현대홈쇼핑 방송정보 자동 크롤러")
@@ -239,9 +273,12 @@ async def main():
 
     results = await crawl_hmall()
     if results:
+        write_schedule_all(results)
         update_data_json(results)
     else:
-        print("⚠️ 수집된 방송 정보가 없습니다.")
+        # 0건이면 실패로 처리 → GitHub Actions가 실패 알림을 보내고, 기존 파일은 그대로 유지됨
+        print("⚠️ 수집된 방송 정보가 없습니다. (사이트 구조 변경/접속 차단 가능성)")
+        sys.exit(1)
 
 if __name__ == "__main__":
     asyncio.run(main())
