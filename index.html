@@ -892,15 +892,21 @@
                                     </a>
                                 </div>
                                 <div class="col-6 text-center">
-                                    <div class="small text-muted mb-1">내 이미지 (캡처 후 Ctrl+V)</div>
+                                    <div class="small text-muted mb-1 d-flex align-items-center justify-content-center gap-2">
+                                        <span>내 이미지 (Ctrl+V 붙여넣기)</span>
+                                        <span id="reg-file-select-box"
+                                            onclick="document.getElementById('reg-image-file').click()"
+                                            style="cursor:pointer; font-size:0.72rem; padding:1px 8px; border:1px solid #b8c4d6; border-radius:999px; background:#fff; color:#5a6a85; white-space:nowrap;"
+                                            title="내 컴퓨터에서 파일 선택">내 파일 선택</span>
+                                    </div>
                                     <input type="file" id="reg-image-file" accept="image/*" style="display:none"
                                         onchange="handleRegImageFile(this.files[0]); this.value='';">
-                                    <div id="reg-custom-box" onclick="document.getElementById('reg-image-file').click()"
-                                        style="cursor:pointer; height: 200px; border: 2px dashed #b8c4d6; border-radius: 12px; background: #f9fbff; display:flex; align-items:center; justify-content:center; overflow:hidden;"
-                                        title="클릭해서 파일 선택 / Ctrl+V 붙여넣기 / 끌어다 놓기">
+                                    <div id="reg-custom-box"
+                                        style="height: 200px; border: 2px dashed #b8c4d6; border-radius: 12px; background: #f9fbff; display:flex; align-items:center; justify-content:center; overflow:hidden;"
+                                        title="Ctrl+V 붙여넣기 / 끌어다 놓기">
                                         <img id="reg-custom-preview" src="" style="display:none; max-width:100%; max-height:200px; height:auto;">
                                         <div id="reg-custom-placeholder" class="text-muted" style="font-size:0.75rem; padding:10px;">
-                                            여기에 Ctrl+V<br>붙여넣기<br>(클릭: 파일 선택,<br>끌어다 놓기 가능)</div>
+                                            여기에 Ctrl+V<br>붙여넣기<br>(끌어다 놓기 가능)</div>
                                     </div>
                                     <button type="button" class="btn btn-outline-secondary btn-sm mt-1" id="reg-image-reset"
                                         style="display:none;" onclick="clearCustomImage()">내 이미지 지우기</button>
@@ -2188,7 +2194,11 @@
                     return;
                 }
 
-                tryLoadImages(code, img, placeholder);
+                // 이미 내가 올린 이미지가 등록된 상품코드면 웹에서 다시 긁어오지 않고 그 이미지를 보여줌
+                var existing = DATA && DATA.items ? DATA.items.find(function (i) { return i.code === code; }) : null;
+                var myImage = (existing && existing.image && existing.image.indexOf('raw.githubusercontent.com/') > -1 && existing.image.indexOf('/images/') > -1) ? existing.image : null;
+
+                tryLoadImages(code, img, placeholder, myImage);
             }
 
             function submitRegistration() {
