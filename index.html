@@ -1892,16 +1892,21 @@
             // ---------------------------------------------------
             // ---------------------------------------------------
             // Image URL Strategy: Multi-Tier Proxy System
-            // Handles prefixes: 'onair', 'ecody', ''
+            // Variant '_0'/'_1'/'_2' = real product photo (hmall orglImgNm, e.g. "2208265793_0.jpg")
+            //   this is the ONLY file name hmall itself actually uses for product shots.
+            // Variant 'onair' = live-broadcast thumbnail (lbrdImgNm) — not the product photo,
+            //   may not exist, kept only as a last-resort fallback.
+            // 'ecody' / '' were unverified guesses (no such field in hmall's API) — removed.
             // Handles proxies: 'G' (Google), 'J' (Jetpack), 'D' (DuckDuckGo), 'W' (weserv)
             // ---------------------------------------------------
-            function getHmallUrl(code, prefix, proxy) {
+            function getHmallUrl(code, variant, proxy) {
                 if (!code || code.length < 10) return null;
                 var numMatch = code.match(/\d{10}$/);
                 if (!numMatch) return null;
                 var num = numMatch[0];
                 var f = [num.charAt(7), num.charAt(6), num.substring(4, 6), num.substring(2, 4)];
-                var rawPath = "image.hmall.com/static/" + f[0] + "/" + f[1] + "/" + f[2] + "/" + f[3] + "/" + prefix + num + ".jpg";
+                var fileName = (variant.charAt(0) === '_') ? (num + variant) : (variant + num);
+                var rawPath = "image.hmall.com/static/" + f[0] + "/" + f[1] + "/" + f[2] + "/" + f[3] + "/" + fileName + ".jpg";
                 var fullUrl = "https://" + rawPath;
 
                 if (proxy === 'G') return "https://images1-focus-opensocial.googleusercontent.com/gadgets/proxy?container=focus&refresh=2592000&url=" + encodeURIComponent(fullUrl);
@@ -1912,22 +1917,22 @@
             }
 
             function getImageUrls(code) {
-                var prefixes = ['onair', 'ecody', ''];
+                var variants = ['_0', '_1', '_2', 'onair'];
                 var list = [];
 
-                // 1. FAST TRACK: Try Direct for non-onair first (regular items work fine)
-                list.push(getHmallUrl(code, 'ecody', 'A'));
-                list.push(getHmallUrl(code, '', 'A'));
+                // 1. FAST TRACK: real product photo direct first (works for almost all items)
+                list.push(getHmallUrl(code, '_0', 'A'));
+                list.push(getHmallUrl(code, '_1', 'A'));
 
-                // 2. PROXY TRACK: Sequential attempts for all patterns
+                // 2. PROXY TRACK: Sequential attempts for all variants
                 var proxiesList = ['G', 'J', 'D', 'W'];
                 proxiesList.forEach(function (px) {
-                    prefixes.forEach(function (pre) {
-                        list.push(getHmallUrl(code, pre, px));
+                    variants.forEach(function (v) {
+                        list.push(getHmallUrl(code, v, px));
                     });
                 });
 
-                // 3. LAST DIRECT: Try onair direct as last ditch before GAS
+                // 3. LAST DIRECT: live-broadcast thumbnail as last ditch before GAS
                 list.push(getHmallUrl(code, 'onair', 'A'));
 
                 // Return unique non-null URLs
@@ -2398,7 +2403,7 @@
 
                 var h = DATA.handlings.find(function (hd) { return hd.code === code; });
                 document.getElementById('dtl-notes').value = h ? h.content : "";
-                var thumbSrc = item.image || imageCache[code] || getHmallUrl(item.code, 'W') || 'https://via.placeholder.com/300';
+                var thumbSrc = item.image || imageCache[code] || getHmallUrl(item.code, '_0', 'W') || 'https://via.placeholder.com/300';
                 document.getElementById('dtl-variant-list').innerHTML = '<img src="' + thumbSrc + '" class="variant-thumb active">';
                 renderDetailTables();
                 updateRentalUI(); // Load rental/stock data
