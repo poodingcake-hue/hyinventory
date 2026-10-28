@@ -893,23 +893,24 @@
                                 </div>
                                 <div class="col-6 text-center">
                                     <div class="small text-muted mb-1 d-flex align-items-center justify-content-center gap-2">
-                                        <span>내 이미지 (Ctrl+V 붙여넣기)</span>
+                                        <span>내 이미지</span>
                                         <span id="reg-file-select-box"
-                                            onclick="document.getElementById('reg-image-file').click()"
+                                            onclick="pickRegFile()"
                                             style="cursor:pointer; font-size:0.72rem; padding:1px 8px; border:1px solid #b8c4d6; border-radius:999px; background:#fff; color:#5a6a85; white-space:nowrap;"
                                             title="내 컴퓨터에서 파일 선택">내 파일 선택</span>
                                     </div>
                                     <input type="file" id="reg-image-file" accept="image/*" style="display:none"
                                         onchange="handleRegImageFile(this.files[0]); this.value='';">
-                                    <div id="reg-custom-box"
-                                        style="height: 200px; border: 2px dashed #b8c4d6; border-radius: 12px; background: #f9fbff; display:flex; align-items:center; justify-content:center; overflow:hidden;"
-                                        title="Ctrl+V 붙여넣기 / 끌어다 놓기">
+                                    <div id="reg-custom-box" onclick="selectRegBox()"
+                                        style="height: 200px; border: 2px dashed #b8c4d6; border-radius: 12px; background: #f9fbff; display:flex; align-items:center; justify-content:center; overflow:hidden; cursor:pointer;"
+                                        title="클릭해서 선택 → Ctrl+V 붙여넣기 / 끌어다 놓기">
                                         <img id="reg-custom-preview" src="" style="display:none; max-width:100%; max-height:200px; height:auto;">
                                         <div id="reg-custom-placeholder" class="text-muted" style="font-size:0.75rem; padding:10px;">
-                                            여기에 Ctrl+V<br>붙여넣기<br>(끌어다 놓기 가능)</div>
+                                            박스를 클릭해서 선택<br>그 다음 Ctrl+V 붙여넣기<br>(또는 끌어다 놓기)</div>
                                     </div>
+                                    <div id="reg-custom-status" class="small fw-bold mt-1" style="min-height:1.2em;"></div>
                                     <button type="button" class="btn btn-outline-secondary btn-sm mt-1" id="reg-image-reset"
-                                        style="display:none;" onclick="clearCustomImage()">내 이미지 지우기</button>
+                                        style="display:none;" onclick="clearCustomImage()">새 이미지 취소</button>
                                     <div class="small text-muted mt-1" id="reg-image-hint"></div>
                                 </div>
                             </div>
@@ -927,11 +928,20 @@
                         <div id="reg-matrix-container" class="table-responsive">
                             <p class="text-muted small">색상과 사이즈를 입력하면 재고 입력 표가 생성됩니다.</p>
                         </div>
-                        <button class="btn btn-primary w-100 py-3 mt-4 fw-bold" id="reg-submit-btn"
-                            onclick="submitRegistration()"
-                            style="background: linear-gradient(135deg, var(--primary-blue), var(--primary-dark)); border: none; border-radius: 12px; font-size: 1rem; box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3); transition: transform 0.2s;">
-                            등록 완료 (마스터 + 초기재고)
-                        </button>
+                        <div class="row g-2 mt-4">
+                            <div class="col-12 col-md-4">
+                                <button class="btn btn-primary w-100 py-2 fw-bold" id="reg-save-master" onclick="saveRegMaster()">① 마스터 정보 저장</button>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <button class="btn btn-outline-primary w-100 py-2 fw-bold" id="reg-save-image" onclick="saveRegImage()" disabled>② 내 이미지 저장</button>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <button class="btn btn-outline-primary w-100 py-2 fw-bold" id="reg-save-stock" onclick="saveRegStock()">③ 입고 재고 저장</button>
+                            </div>
+                        </div>
+                        <div class="text-end mt-2">
+                            <button class="btn btn-link btn-sm text-muted p-0" onclick="clearRegForm()">입력 전체 비우기</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1248,6 +1258,27 @@
                                 updatedContent.stockMap[key] = (updatedContent.stockMap[key] || 0) + s.qty;
                             });
                         }
+                    } else if (action === "saveMaster") {
+                        // 같은 상품코드가 있으면 수정(이미지는 그대로 유지), 없으면 새로 추가
+                        if (!updatedContent.items) updatedContent.items = [];
+                        const m = payload.master;
+                        const idx = updatedContent.items.findIndex(i => i.code === m.code);
+                        if (idx >= 0) {
+                            const prev = updatedContent.items[idx];
+                            updatedContent.items[idx] = Object.assign({}, prev, m, { image: m.image || prev.image || "" });
+                        } else {
+                            updatedContent.items.push(m);
+                        }
+                    } else if (action === "saveCustomImage") {
+                        const idx = (updatedContent.items || []).findIndex(i => i.code === payload.code);
+                        if (idx < 0) throw new Error("마스터 정보가 없습니다. 먼저 ① 마스터 정보를 저장하세요.");
+                        updatedContent.items[idx].image = payload.image;
+                    } else if (action === "saveStockIn") {
+                        if (!(updatedContent.items || []).some(i => i.code === payload.code)) throw new Error("마스터 정보가 없습니다. 먼저 ① 마스터 정보를 저장하세요.");
+                        payload.stocks.forEach(s => {
+                            const key = `${payload.code}_${s.color}_${s.size}`;
+                            updatedContent.stockMap[key] = (updatedContent.stockMap[key] || 0) + s.qty;
+                        });
                     } else if (action === "processRental") {
                         const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
                         payload.items.forEach(item => {
@@ -1792,23 +1823,14 @@
                 if (tab) tab.classList.add('active');
 
                 document.getElementById('reg-mode-title').innerText = mode === 'new' ? '새 상품 등록' : '상품 추가 입고';
-                document.getElementById('reg-submit-btn').innerText = mode === 'new' ? '등록 완료 (마스터 + 초기재고)' : '추가입고 완료 (마스터 업데이트 + 재고추가)';
-
-                document.getElementById('reg-image-section').style.display = mode === 'new' ? 'block' : 'none';
                 document.getElementById('reg-existing-section').style.display = mode === 'add' ? 'block' : 'none';
-
-                if (mode === 'new') {
-                    updateRegImage();
-                } else {
-                    handleRegCodeInput();
-                }
-                updateRegMatrix();
+                handleRegCodeInput();
             }
 
             function handleRegCodeInput() {
-                if (regMode === 'new') {
-                    updateRegImage();
-                } else {
+                updateRegImage();
+                updateCustomBox();
+                if (regMode === 'add') {
                     var code = document.getElementById('reg-code').value.trim();
                     var item = DATA.items.find(function (i) { return i.code === code; });
                     if (item) {
@@ -1826,6 +1848,17 @@
                     }
                 }
                 updateRegMatrix();
+            }
+
+            function clearRegForm() {
+                if (!confirm("입력한 내용을 모두 비울까요?\n(이미 저장된 데이터는 그대로 있습니다)")) return;
+                ['reg-code', 'reg-brand', 'reg-name', 'reg-category', 'reg-colors', 'reg-sizes'].forEach(function (id) {
+                    document.getElementById(id).value = "";
+                });
+                regCustomImage = null;
+                regBoxSelected = false;
+                document.getElementById('reg-existing-matrix').innerHTML = "";
+                handleRegCodeInput();
             }
 
             function renderExistingStock(code, vData) {
@@ -2086,43 +2119,86 @@
                 });
             }
 
+            var savedMyImage = null;   // 이미 저장된 내 이미지 주소 (상품코드 기준)
+            var regBoxSelected = false; // 내 이미지 박스가 선택됐는지 (선택된 상태에서만 붙여넣기 허용)
+
             function handleRegImageFile(file) {
                 if (!file) return;
                 if (!/^image\//.test(file.type || "")) { alert("이미지 파일만 올릴 수 있습니다."); return; }
                 resizeToJpegDataUrl(file, 1000, 0.85).then(function (dataUrl) {
                     regCustomImage = dataUrl;
-                    showRegCustomImage();
+                    renderCustomBox();
                 }).catch(function (err) { alert(err.message); });
             }
 
-            function showRegCustomImage() {
-                var img = document.getElementById('reg-custom-preview');
-                img.src = regCustomImage;
-                img.style.display = 'block';
-                document.getElementById('reg-custom-placeholder').style.display = 'none';
-                document.getElementById('reg-custom-box').style.borderStyle = 'solid';
-                document.getElementById('reg-image-reset').style.display = 'inline-block';
-                document.getElementById('reg-image-hint').innerText = "내 이미지로 등록됩니다.";
+            function selectRegBox() { setRegBoxSelected(true); }
+            function pickRegFile() {
+                setRegBoxSelected(true);
+                document.getElementById('reg-image-file').click();
+            }
+            function setRegBoxSelected(on) {
+                regBoxSelected = !!on;
+                renderCustomBox();
             }
 
             function clearCustomImage() {
                 regCustomImage = null;
-                resetCustomBox();
+                renderCustomBox();
             }
 
-            function resetCustomBox() {
+            // 상품코드에 맞춰 이미 저장된 내 이미지를 찾아 보여준다
+            function updateCustomBox() {
+                var code = document.getElementById('reg-code').value.trim();
+                var existing = DATA && DATA.items ? DATA.items.find(function (i) { return i.code === code; }) : null;
+                savedMyImage = (existing && existing.image && existing.image.indexOf('raw.githubusercontent.com/') > -1 && existing.image.indexOf('/images/') > -1) ? existing.image : null;
+                renderCustomBox();
+            }
+
+            function renderCustomBox() {
+                var box = document.getElementById('reg-custom-box');
                 var img = document.getElementById('reg-custom-preview');
-                img.src = ''; img.style.display = 'none';
-                document.getElementById('reg-custom-placeholder').style.display = 'block';
-                document.getElementById('reg-custom-box').style.borderStyle = 'dashed';
-                document.getElementById('reg-image-reset').style.display = 'none';
-                document.getElementById('reg-image-hint').innerText = "";
+                var ph = document.getElementById('reg-custom-placeholder');
+                var src = regCustomImage || savedMyImage;
+
+                if (src) {
+                    img.src = src;
+                    img.style.display = 'block';
+                    ph.style.display = 'none';
+                } else {
+                    img.removeAttribute('src');
+                    img.style.display = 'none';
+                    ph.style.display = 'block';
+                }
+
+                box.style.borderStyle = regBoxSelected ? 'solid' : 'dashed';
+                box.style.borderColor = regBoxSelected ? '#4f46e5' : '#b8c4d6';
+                box.style.background = regBoxSelected ? '#eef0ff' : '#f9fbff';
+                box.style.boxShadow = regBoxSelected ? '0 0 0 3px rgba(79,70,229,0.25)' : 'none';
+                ph.innerHTML = regBoxSelected
+                    ? '<b style="color:#4f46e5;">✓ 선택됨</b><br>Ctrl+V 로 붙여넣기<br>(또는 끌어다 놓기)'
+                    : '박스를 클릭해서 선택<br>그 다음 Ctrl+V 붙여넣기<br>(또는 끌어다 놓기)';
+
+                var status = document.getElementById('reg-custom-status');
+                if (regCustomImage) {
+                    status.innerText = '새 이미지 (아직 저장 안 됨) → ② 내 이미지 저장을 눌러주세요';
+                    status.style.color = '#d97706';
+                } else if (savedMyImage) {
+                    status.innerText = '저장된 내 이미지 (바꾸려면 박스 선택 후 붙여넣기)';
+                    status.style.color = '#15803d';
+                } else {
+                    status.innerText = '';
+                }
+
+                document.getElementById('reg-image-reset').style.display = regCustomImage ? 'inline-block' : 'none';
+                var code = document.getElementById('reg-code').value.trim();
+                document.getElementById('reg-save-image').disabled = !(regCustomImage && code);
             }
 
-            // 등록 화면에서 이미지를 붙여넣거나 끌어다 놓으면 처리 (텍스트 붙여넣기는 그대로 둔다)
+            // 박스가 선택된 상태에서만 붙여넣기 허용 (다른 칸에 붙여넣기 할 때 이미지가 끼어들지 않게)
             document.addEventListener('paste', function (e) {
+                if (!regBoxSelected) return;
                 var view = document.getElementById('view-register');
-                if (!view || view.offsetParent === null || regMode !== 'new') return;
+                if (!view || view.offsetParent === null) return;
                 var items = (e.clipboardData && e.clipboardData.items) || [];
                 for (var k = 0; k < items.length; k++) {
                     if (items[k].type && items[k].type.indexOf('image') === 0) {
@@ -2132,15 +2208,26 @@
                     }
                 }
             });
+            // 박스 밖을 클릭하면 선택 해제
+            document.addEventListener('click', function (e) {
+                if (!regBoxSelected) return;
+                var t = e.target;
+                if (t && t.closest && (t.closest('#reg-custom-box') || t.closest('#reg-file-select-box'))) return;
+                setRegBoxSelected(false);
+            });
+            // 박스 위에 끌어다 놓으면 바로 선택 + 적용
             document.addEventListener('dragover', function (e) {
-                var view = document.getElementById('view-register');
-                if (view && view.offsetParent !== null && regMode === 'new') e.preventDefault();
+                if (e.target && e.target.closest && e.target.closest('#reg-custom-box')) e.preventDefault();
             });
             document.addEventListener('drop', function (e) {
-                var view = document.getElementById('view-register');
-                if (!view || view.offsetParent === null || regMode !== 'new') return;
+                var box = e.target && e.target.closest ? e.target.closest('#reg-custom-box') : null;
+                if (!box) return;
                 var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-                if (f && /^image\//.test(f.type)) { e.preventDefault(); handleRegImageFile(f); }
+                if (f && /^image\//.test(f.type)) {
+                    e.preventDefault();
+                    setRegBoxSelected(true);
+                    handleRegImageFile(f);
+                }
             });
 
             // GitHub 저장소 images/<상품코드>.jpg 에 업로드하고 화면에서 쓸 주소를 돌려준다
@@ -2201,28 +2288,26 @@
                 tryLoadImages(code, img, placeholder, myImage);
             }
 
-            function submitRegistration() {
-                var master = {
-                    code: document.getElementById('reg-code').value.trim(),
+            function getRegCode() {
+                return document.getElementById('reg-code').value.trim();
+            }
+
+            function getRegMaster() {
+                var prev = document.getElementById('reg-image-preview');
+                // 내 이미지(새 것/저장된 것)가 있으면 웹 이미지로 덮어쓰지 않는다
+                var webImg = (!regCustomImage && !savedMyImage && prev.style.display === 'block') ? prev.src : "";
+                return {
+                    code: getRegCode(),
                     brand: document.getElementById('reg-brand').value.trim(),
                     name: document.getElementById('reg-name').value.trim(),
                     category: document.getElementById('reg-category').value.trim(),
                     colors: document.getElementById('reg-colors').value.split(',').map(function (s) { return s.trim(); }).filter(function (s) { return s !== ""; }),
                     sizes: document.getElementById('reg-sizes').value.split(',').map(function (s) { return s.trim(); }).filter(function (s) { return s !== ""; }),
-                    image: (regMode === 'new' && !regCustomImage && document.getElementById('reg-image-preview').style.display === 'block') ? document.getElementById('reg-image-preview').src : ""
+                    image: webImg
                 };
+            }
 
-                // Preserve image in add mode if empty
-                if (regMode === 'add' && !master.image) {
-                    var existing = DATA.items.find(function (i) { return i.code === master.code; });
-                    if (existing) master.image = existing.image || "";
-                }
-
-                if (!master.code || !master.name) {
-                    alert("상품코드와 상품명은 필수 입력 사항입니다.");
-                    return;
-                }
-
+            function getRegStocks() {
                 var stocks = [];
                 document.querySelectorAll('.reg-stock-input').forEach(function (input) {
                     var qty = parseInt(input.value);
@@ -2234,59 +2319,84 @@
                         });
                     }
                 });
+                return stocks;
+            }
 
-                var run = function () {
-                showLoader(true);
-                callApi('registerProductData', { master: master, stocks: stocks })
-                    .then(function (res) {
-                        showLoader(false);
-                        if (res.success) {
-                            alert(regMode === 'new' ? "새 상품 및 초기 재고가 등록되었습니다." : "상품 정보 업데이트 및 추가 입고가 완료되었습니다.");
+            function hasMasterInData(code) {
+                return !!(DATA && DATA.items && DATA.items.some(function (i) { return i.code === code; }));
+            }
 
-                            // THOROUGHLY clear all fields as requested
-                            document.getElementById('reg-code').value = "";
-                            document.getElementById('reg-brand').value = "";
-                            document.getElementById('reg-name').value = "";
-                            document.getElementById('reg-category').value = "";
-                            document.getElementById('reg-colors').value = "";
-                            document.getElementById('reg-sizes').value = "";
-
-                            // Reset UI states
-                            if (regMode === 'new') {
-                                regCustomImage = null;
-                                resetCustomBox();
-                                updateRegImage();
-                            } else {
-                                document.getElementById('reg-existing-matrix').innerHTML = '<div class="text-muted small p-4 text-center bg-light rounded-3">기존 상품 정보가 없습니다.</div>';
-                            }
-                            updateRegMatrix();
-
-                            // Refresh global data to reflect changes in other views
-                            refreshData();
-                        } else {
-                            alert("처리 실패: " + res.error);
-                        }
-                    })
-                    .catch(function (err) {
-                        showLoader(false);
-                        alert("시스템 오류: " + err);
-                    });
-                };
-
-                // 내가 올린 이미지가 있으면 GitHub에 먼저 저장 → 그 주소로 상품 등록
-                if (regMode === 'new' && regCustomImage) {
-                    showLoader(true);
-                    uploadImageToGithub(master.code, regCustomImage).then(function (url) {
-                        master.image = url;
-                        showLoader(false);
-                        run();
-                    }).catch(function (err) {
-                        showLoader(false);
-                        alert("이미지 저장 실패: " + err.message);
-                    });
-                } else {
-                    run();
+            // ① 마스터 정보 (상품명/브랜드/카테고리/색상/사이즈/웹이미지)
+            function saveRegMaster() {
+                var master = getRegMaster();
+                if (!master.code || !master.name) {
+                    alert("상품코드와 상품명은 필수 입력 사항입니다.");
+                    return;
                 }
+                if (regMode === 'new' && hasMasterInData(master.code) &&
+                    !confirm("이미 등록된 상품코드입니다.\n이 내용으로 마스터 정보를 덮어쓸까요?")) {
+                    return;
+                }
+                showLoader(true);
+                callApi('saveMaster', { master: master }).then(function (res) {
+                    showLoader(false);
+                    if (!res.success) { alert("처리 실패: " + res.error); return; }
+                    alert("마스터 정보가 저장되었습니다.");
+                    refreshData(function () { handleRegCodeInput(); });
+                }).catch(function (err) {
+                    showLoader(false);
+                    alert("시스템 오류: " + err);
+                });
+            }
+
+            // ② 내 이미지 (선택 → 붙여넣기 한 이미지를 images/상품코드.jpg 로 저장, 다시 저장하면 덮어씀)
+            function saveRegImage() {
+                var code = getRegCode();
+                if (!regCustomImage) {
+                    alert("먼저 내 이미지 박스를 클릭해서 선택하고 Ctrl+V 로 이미지를 붙여넣으세요.");
+                    return;
+                }
+                if (!code) { alert("상품코드를 입력하세요."); return; }
+                if (!hasMasterInData(code)) { alert("먼저 ① 마스터 정보를 저장하세요."); return; }
+
+                showLoader(true);
+                uploadImageToGithub(code, regCustomImage).then(function (url) {
+                    return callApi('saveCustomImage', { code: code, image: url });
+                }).then(function (res) {
+                    showLoader(false);
+                    if (!res.success) { alert("처리 실패: " + res.error); return; }
+                    regCustomImage = null;
+                    regBoxSelected = false;
+                    alert("내 이미지가 저장되었습니다.");
+                    refreshData(function () { handleRegCodeInput(); });
+                }).catch(function (err) {
+                    showLoader(false);
+                    alert("이미지 저장 실패: " + err.message);
+                });
+            }
+
+            // ③ 입고 재고 (색상×사이즈 수량을 기존 재고에 더함)
+            function saveRegStock() {
+                var code = getRegCode();
+                var stocks = getRegStocks();
+                if (!code) { alert("상품코드를 입력하세요."); return; }
+                if (!hasMasterInData(code)) { alert("먼저 ① 마스터 정보를 저장하세요."); return; }
+                if (!stocks.length) { alert("입고 수량을 1개 이상 입력하세요."); return; }
+
+                var total = stocks.reduce(function (sum, s) { return sum + s.qty; }, 0);
+                if (!confirm("입고 수량 총 " + total + "개를 저장할까요?")) return;
+
+                showLoader(true);
+                callApi('saveStockIn', { code: code, stocks: stocks }).then(function (res) {
+                    showLoader(false);
+                    if (!res.success) { alert("처리 실패: " + res.error); return; }
+                    alert("입고 재고가 저장되었습니다.");
+                    document.querySelectorAll('.reg-stock-input').forEach(function (input) { input.value = ""; });
+                    refreshData(function () { handleRegCodeInput(); });
+                }).catch(function (err) {
+                    showLoader(false);
+                    alert("시스템 오류: " + err);
+                });
             }
 
             function renderInventory() {
