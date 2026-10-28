@@ -831,6 +831,7 @@
                 <!-- Left: Info -->
                 <div class="col-lg-5">
                     <div class="info-card h-100">
+                        <div class="mb-3"><button class="btn btn-primary btn-sm fw-bold px-3" id="reg-save-master" onclick="saveRegMaster()">① 마스터 정보 저장</button></div>
                         <h5 class="fw-bold mb-4" id="reg-mode-title">새 상품 등록</h5>
                         <div class="row mb-3 align-items-center">
                             <label class="col-4 col-form-label small fw-bold">상품코드</label>
@@ -878,9 +879,10 @@
                     <div class="info-card h-100" style="min-height: 400px;">
                         <!-- Image Preview (Only for New Mode) -->
                         <div id="reg-image-section">
+                            <div class="mb-2"><button class="btn btn-outline-primary btn-sm fw-bold px-3" id="reg-save-image" onclick="saveRegImage()" disabled>② 내 이미지 저장</button></div>
                             <div class="row g-2 mb-3">
                                 <div class="col-6 text-center">
-                                    <div class="small text-muted mb-1">웹 이미지 (클릭하면 상품페이지)</div>
+                                    <div class="small text-muted mb-1">웹 이미지</div>
                                     <a id="reg-image-link" href="#" target="_blank" rel="noopener"
                                         style="display:block; cursor:pointer;" title="hmall 상품페이지 열기">
                                         <img id="reg-image-preview" src=""
@@ -888,7 +890,7 @@
                                         <div id="reg-image-placeholder"
                                             class="d-flex align-items-center justify-content-center text-muted"
                                             style="font-size: 0.75rem; text-align: center; padding: 10px; height: 200px; background: #f9f9f9; border: 1px solid #eee; border-radius: 12px;">
-                                            상품 이미지가 여기에 표시됩니다</div>
+                                            </div>
                                     </a>
                                 </div>
                                 <div class="col-6 text-center">
@@ -906,16 +908,15 @@
                                         title="클릭해서 선택 → Ctrl+V 붙여넣기 / 끌어다 놓기">
                                         <img id="reg-custom-preview" src="" style="display:none; max-width:100%; max-height:200px; height:auto;">
                                         <div id="reg-custom-placeholder" class="text-muted" style="font-size:0.75rem; padding:10px;">
-                                            박스를 클릭해서 선택<br>그 다음 Ctrl+V 붙여넣기<br>(또는 끌어다 놓기)</div>
+                                            </div>
                                     </div>
-                                    <div id="reg-custom-status" class="small fw-bold mt-1" style="min-height:1.2em;"></div>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm mt-1" id="reg-image-reset"
-                                        style="display:none;" onclick="clearCustomImage()">새 이미지 취소</button>
-                                    <div class="small text-muted mt-1" id="reg-image-hint"></div>
+                                    
                                 </div>
                             </div>
                         </div>
 
+                        <!-- Stock area -->
+                        <div class="mb-3"><button class="btn btn-outline-primary btn-sm fw-bold px-3" id="reg-save-stock" onclick="saveRegStock()">③ 입고 재고 저장</button></div>
                         <!-- Existing Stock (Only for Add Mode) -->
                         <div id="reg-existing-section" style="display: none;">
                             <h6 class="fw-bold mb-3 text-muted" style="font-size: 0.85rem;">[ 기입고 재고매트릭스 ]</h6>
@@ -925,19 +926,7 @@
                             <h6 class="fw-bold mb-3 text-dark" style="font-size: 0.85rem;">[ 추가입고 신규매트릭스 ]</h6>
                         </div>
 
-                        <div id="reg-matrix-container" class="table-responsive">
-                            <p class="text-muted small">색상과 사이즈를 입력하면 재고 입력 표가 생성됩니다.</p>
-                        </div>
-                        <div class="row g-2 mt-4">
-                            <div class="col-12 col-md-4">
-                                <button class="btn btn-primary w-100 py-2 fw-bold" id="reg-save-master" onclick="saveRegMaster()">① 마스터 정보 저장</button>
-                            </div>
-                            <div class="col-12 col-md-4">
-                                <button class="btn btn-outline-primary w-100 py-2 fw-bold" id="reg-save-image" onclick="saveRegImage()" disabled>② 내 이미지 저장</button>
-                            </div>
-                            <div class="col-12 col-md-4">
-                                <button class="btn btn-outline-primary w-100 py-2 fw-bold" id="reg-save-stock" onclick="saveRegStock()">③ 입고 재고 저장</button>
-                            </div>
+                        <div id="reg-matrix-container" class="table-responsive"><table class="table table-bordered table-sm align-middle text-center" style="font-size: 0.8rem;"><thead class="table-light"><tr><th style="min-width: 80px;">&nbsp;</th><th>&nbsp;</th><th>&nbsp;</th><th>&nbsp;</th><th>&nbsp;</th></tr></thead><tbody><tr><td class="bg-light">&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr><tr><td class="bg-light">&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr><tr><td class="bg-light">&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr><tr><td class="bg-light">&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr></tbody></table>
                         </div>
                         <div class="text-end mt-2">
                             <button class="btn btn-link btn-sm text-muted p-0" onclick="clearRegForm()">입력 전체 비우기</button>
@@ -1887,13 +1876,15 @@
                 document.getElementById('reg-existing-matrix').innerHTML = html;
             }
 
+            var BLANK_STOCK_TABLE = '<table class="table table-bordered table-sm align-middle text-center" style="font-size: 0.8rem;"><thead class="table-light"><tr><th style="min-width: 80px;">&nbsp;</th><th>&nbsp;</th><th>&nbsp;</th><th>&nbsp;</th><th>&nbsp;</th></tr></thead><tbody><tr><td class="bg-light">&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr><tr><td class="bg-light">&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr><tr><td class="bg-light">&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr><tr><td class="bg-light">&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr></tbody></table>';
+
             function updateRegMatrix() {
                 var container = document.getElementById('reg-matrix-container');
                 var colorsStr = document.getElementById('reg-colors').value;
                 var sizesStr = document.getElementById('reg-sizes').value;
 
                 if (!colorsStr && !sizesStr) {
-                    container.innerHTML = regMode === 'new' ? '<p class="text-muted small">색상과 사이즈를 입력하면 재고 입력 표가 생성됩니다.</p>' : '<p class="text-muted small">입력된 색상/사이즈가 없습니다.</p>';
+                    container.innerHTML = BLANK_STOCK_TABLE;
                     return;
                 }
 
@@ -1901,7 +1892,7 @@
                 var sizes = sizesStr.split(',').map(function (s) { return s.trim(); }).filter(function (s) { return s !== ""; });
 
                 if (colors.length === 0 || sizes.length === 0) {
-                    container.innerHTML = '<p class="text-muted small">색상과 사이즈 정보를 모두 입력해주세요.</p>';
+                    container.innerHTML = BLANK_STOCK_TABLE;
                     return;
                 }
 
@@ -1996,7 +1987,7 @@
                 // 1-1. 직접 올린 이미지(우리 저장소 images/)는 먼저 단독으로 시도, 실패하면 기존 방식으로 계속
                 if (initialUrl && initialUrl.indexOf('raw.githubusercontent.com/') > -1 && initialUrl.indexOf('/images/') > -1) {
                     placeholderEl.style.display = 'flex';
-                    placeholderEl.innerText = '불러오는 중...';
+                    placeholderEl.innerText = placeholderEl.id === 'reg-image-placeholder' ? '' : '불러오는 중...';
                     imgEl.style.display = 'none';
                     var own = new Image();
                     own.onload = function () {
@@ -2019,12 +2010,12 @@
                 if (!urls.length) {
                     imgEl.style.display = 'none';
                     placeholderEl.style.display = 'flex';
-                    placeholderEl.innerText = '이미지 없음';
+                    placeholderEl.innerText = placeholderEl.id === 'reg-image-placeholder' ? '' : '이미지 없음';
                     return;
                 }
 
                 placeholderEl.style.display = 'flex';
-                placeholderEl.innerText = '불러오는 중...';
+                placeholderEl.innerText = placeholderEl.id === 'reg-image-placeholder' ? '' : '불러오는 중...';
                 imgEl.style.display = 'none';
 
                 var finished = false;
@@ -2076,13 +2067,13 @@
                         } else {
                             imgEl.style.display = 'none';
                             placeholderEl.style.display = 'flex';
-                            placeholderEl.innerText = '이미지 없음';
+                            placeholderEl.innerText = placeholderEl.id === 'reg-image-placeholder' ? '' : '이미지 없음';
                         }
                     })
                     .withFailureHandler(function () {
                         imgEl.style.display = 'none';
                         placeholderEl.style.display = 'flex';
-                        placeholderEl.innerText = '이미지 없음';
+                        placeholderEl.innerText = placeholderEl.id === 'reg-image-placeholder' ? '' : '이미지 없음';
                     })
                     .fetchProxyImage(code);
             }
@@ -2157,39 +2148,22 @@
             function renderCustomBox() {
                 var box = document.getElementById('reg-custom-box');
                 var img = document.getElementById('reg-custom-preview');
-                var ph = document.getElementById('reg-custom-placeholder');
                 var src = regCustomImage || savedMyImage;
 
                 if (src) {
                     img.src = src;
                     img.style.display = 'block';
-                    ph.style.display = 'none';
                 } else {
                     img.removeAttribute('src');
                     img.style.display = 'none';
-                    ph.style.display = 'block';
                 }
 
+                // 선택된 상태는 테두리로만 표시
                 box.style.borderStyle = regBoxSelected ? 'solid' : 'dashed';
                 box.style.borderColor = regBoxSelected ? '#4f46e5' : '#b8c4d6';
                 box.style.background = regBoxSelected ? '#eef0ff' : '#f9fbff';
                 box.style.boxShadow = regBoxSelected ? '0 0 0 3px rgba(79,70,229,0.25)' : 'none';
-                ph.innerHTML = regBoxSelected
-                    ? '<b style="color:#4f46e5;">✓ 선택됨</b><br>Ctrl+V 로 붙여넣기<br>(또는 끌어다 놓기)'
-                    : '박스를 클릭해서 선택<br>그 다음 Ctrl+V 붙여넣기<br>(또는 끌어다 놓기)';
 
-                var status = document.getElementById('reg-custom-status');
-                if (regCustomImage) {
-                    status.innerText = '새 이미지 (아직 저장 안 됨) → ② 내 이미지 저장을 눌러주세요';
-                    status.style.color = '#d97706';
-                } else if (savedMyImage) {
-                    status.innerText = '저장된 내 이미지 (바꾸려면 박스 선택 후 붙여넣기)';
-                    status.style.color = '#15803d';
-                } else {
-                    status.innerText = '';
-                }
-
-                document.getElementById('reg-image-reset').style.display = regCustomImage ? 'inline-block' : 'none';
                 var code = document.getElementById('reg-code').value.trim();
                 document.getElementById('reg-save-image').disabled = !(regCustomImage && code);
             }
@@ -2277,7 +2251,7 @@
                 if (!code || code.replace(/\D/g, '').length < 10) {
                     img.style.display = 'none';
                     placeholder.style.display = 'flex';
-                    placeholder.innerText = '이미지 없음';
+                    placeholder.innerText = '';
                     return;
                 }
 
