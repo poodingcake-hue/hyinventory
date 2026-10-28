@@ -44,9 +44,12 @@
 - handleRegCodeInput: 코드 입력 시 기존 상품 불러오기(add), renderExistingStock
 - updateRegMatrix: 색상×사이즈 수량 입력표 (.reg-stock-input)
 - updateRegImage: 왼쪽 웹 이미지 + 클릭 시 `https://www.hmall.com/md/pda/itemPtc?slitmCd=코드` (reg-image-link)
-- 내 이미지(오른쪽 칸 reg-custom-box): handleRegImageFile, resizeToJpegDataUrl(최대 1000px JPEG), showRegCustomImage, clearCustomImage, resetCustomBox, document paste/drop 리스너
-- uploadImageToGithub(code, dataUrl) → images/코드.jpg
-- submitRegistration → (내 이미지 있으면 업로드 먼저) → callApi('registerProductData')
+- 내 이미지(오른쪽 칸 reg-custom-box): 박스를 클릭해서 선택(regBoxSelected)해야 붙여넣기/끌어다 놓기가 동작. handleRegImageFile → resizeToJpegDataUrl(최대 1000px JPEG) → renderCustomBox. updateCustomBox는 코드에 맞는 저장된 내 이미지(savedMyImage)를 불러옴
+- 저장은 3개로 분리 (각 영역 상단 왼쪽 버튼): saveRegMaster(① 마스터, callApi 'saveMaster') / saveRegImage(② 내 이미지, uploadImageToGithub 후 'saveCustomImage') / saveRegStock(③ 입고 재고, 'saveStockIn')
+- getRegMaster / getRegStocks: 폼 값 읽기. hasMasterInData: 마스터 먼저 저장했는지 확인
+- uploadImageToGithub(code, dataUrl) → images/코드.jpg (같은 코드면 sha로 덮어쓰기)
+- blankStockTable / BLANK_STOCK_TABLE: 색상·사이즈가 없을 때 빈 재고표 표시
+- 'registerProductData'는 예전 한 번에 저장 방식. 지금은 호환용으로만 남아 있음
 
 **공통**
 - refreshData → callApi('getInitialData') → applyLiveSchedule → initUI
@@ -66,8 +69,7 @@
 - 셸에서 hmall/github.io curl 안 됨 → 확인은 브라우저 도구로. hmall 목록은 모바일 크기 + 보이는 창이어야 렌더링.
 - 수정 후 문법 확인: `<script>` 내용 추출 → `node --check`.
 
-## 할일 (2026-10-27)
-1. 코드 입력 시 상품명 자동 채우기(schedule_all.json) + 이미 있는 코드 경고
-2. 브랜드·카테고리 고르기 + 사이즈 세트 버튼
-3. 편성표에 미등록 상품 표시 → 클릭 시 등록
-4. Cloudflare Worker 배포로 토큰 입력 없애기
+## 할일
+1. 브랜드·카테고리 고르기 + 사이즈 세트 버튼
+2. 편성표에 미등록 상품 표시 → 클릭 시 등록
+3. Cloudflare Worker 배포로 토큰 입력 없애기
