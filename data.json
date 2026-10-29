@@ -337,17 +337,8 @@
     }
   ],
   "outfits": [],
-  "schedule": [
-    {
-      "date": "2026-10-28",
-      "time": "12:35",
-      "code": "2236645992",
-      "name": "고비 [런칭가 499000원] 고비(GOBI) 스퀘어퀼팅 구스 다운베스트"
-    }
-  ],
+  "schedule": [],
   "handlings": [],
   "variationsMap": {},
-  "dates": [
-    "2026-10-28"
-  ]
+  "dates": []
 }
